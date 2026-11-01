@@ -1,0 +1,19 @@
+fatal: '/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/control-tree' is not a working tree
+Preparing worktree (detached HEAD 2f80baa3e)
+  · $ cat build/README.md; ls build; ls scripts 2>&1; grep -n "check-fast" -A5 Makefile; grep -…
+  · $ ls; grep -rn "check-fast" --include=* . --exclude-dir=node_modules --exclude-dir=vendor 2…
+  · $ grep -rln "check-fast" . --exclude-dir=node_modules --exclude-dir=vendor 2>/dev/null | he…
+  · $ ls ~/.claude/skills 2>/dev/null; grep -rl "check-fast" ~/.claude/skills 2>/dev/null | head
+  · edit /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/control-tree/build/README.md
+  · edit /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/control-tree/build/README.md
+  · $ git status --short; git diff --stat; grep -in travis build/README.md; test -f build/build…
+  · $ php -q ./build/check_lineterm.php -c 2>&1 | grep -i readme | head; echo rc=$?; file build…
+  · StructuredOutput
+  $ vendor/bin/phpunit
+  ! before the harness: the test command did not run tests (exit 127, 0s)
+fatal: '/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree' is not a working tree
+Preparing worktree (detached HEAD 3260f7eac)
+  $ make setup
+  ✗ setup gate failed (exit 2) after 3s
+control: partial, 2/3 criteria, 1 questions, 42s, own tests: ran no test (exit 127), harness gates: FAIL
+control exit 0

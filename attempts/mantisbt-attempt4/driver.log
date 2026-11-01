@@ -1,0 +1,6 @@
+== run
+run exit 1
+== prove
+prove exit 0
+== control
+control exit 0

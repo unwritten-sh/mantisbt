@@ -1,0 +1,7 @@
+{
+  "command": "vendor/bin/phpunit",
+  "ok": false,
+  "tests": null,
+  "note": "not measured",
+  "how": "The upstream CI runs vendor/bin/phpunit only after build/ci_install_mantis.sh (a database and an installed MantisBT, which write tests/bootstrap.php) and with a web server for the REST suites. On a worktree of the base commit the bare command stops before any test: first tests/bootstrap.php is missing, then, with the local config files and vendor/ copied from the clone (own-tests-manual.sh, baseline-manual.log), PHPUnit cannot load Mantis\\tests\\Mantis\\MantisCoreBase on PHP 8.5. The harness full gate (make check) runs the install, the server and the suites: 833 tests."
+}

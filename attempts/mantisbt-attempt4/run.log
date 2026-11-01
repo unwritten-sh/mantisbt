@@ -1,0 +1,244 @@
+uw-harness 0.3.0  /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo
+
+▸ Detect
+
+  Knowledge
+  ✗ L1 An AGENTS.md at the root  no AGENTS.md
+  ✗ L1 AGENTS.md matches the repository  no AGENTS.md to check
+  ✗ L1 An architecture overview with a diagram  no docs/architecture.md
+  ◐ L1 What the product does and for whom  only README.md (104 lines), no docs/product.md
+  ✗ L2 Architecture decision records  no docs/decisions/
+  ✗ L2 An implementation log  no docs/harness/log.md
+  ✓ L1 Team agreements  CONTRIBUTING.md exists
+
+  Verification loops
+  ✓ L1 One entry point for tasks  package.json: 5 tasks
+  ✗ L2 A fast gate  no fast gate target (for example check-fast)
+  ✗ L2 A full gate  no full gate target (for example check)
+  ✓ L1 Automated tests  68 test files
+  ✓ L2 CI runs the gate on every change  CI calls 2 task runner targets (api:validate, api:generate)
+  ✗ L3 Git hooks run the fast gate  no git hooks configuration
+
+  Local environment
+  ✗ L1 The app runs locally with one command  no compose file, devcontainer or dev target
+  ✗ L1 Configuration is documented, no secret in git  no .env.example
+  ✗ L1 Toolchain versions are pinned  no runtime version file
+
+  Delivery and operations
+  ◐ L3 Deployment is explicit in the repository  deployment artifacts (docbook/Dockerfile) but no docs/deploy.md
+  ✗ L3 Production can be observed  no docs/observability.md
+
+  Capabilities
+  ✗ L2 Skills for repeated tasks  no skills in .agents/skills/ or .claude/skills/
+
+  harness coverage 27/100  level 0 (not yet oriented)  4 pass, 2 partial, 13 missing
+
+▸ Analyze
+  Agent: claude (your installed CLI, with your login and default model)
+  A full run uses your agent for 10 to 30 minutes, inside your normal plan or usage.
+  claude reads the repository in read-only mode. This takes a few minutes.
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; ls -a; cat composer.json…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat .github/workflows/ma…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat README.md CONTRIBUTI…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat build/ci_install_man…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; head -80 tests/Mantis/Ma…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; sed -n 1,200p tests/Test…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; git shortlog -sn HEAD | …
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; head -40 build/check_for…
+  · search GuzzleHttp
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; ls lang | head -5; ls la…
+  · StructuredOutput
+  · StructuredOutput
+  ✓ MantisBT (Mantis Bug Tracker): 14 components, 9 use cases, 6 questions (4m 28s)
+  Assessment: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.git/uw-harness/assessment.md
+
+▸ Questions
+  6 questions need a human. They become TODO blocks in the docs.
+
+▸ Baseline
+  The project's own test command, before any change, to compare with the gates later.
+  $ vendor/bin/phpunit
+  ! before the harness: the test command did not run tests (exit 127, 0s)
+
+▸ Apply
+  Created branch uw-harness/20261101-1917 from master
+  claude writes the harness on this branch. This usually takes 10 to 30 minutes.
+  · $ ls -a && cat package.json composer.json phpunit.xml .gitignore && ls .github/workflows bu…
+  · $ cat .github/workflows/mantisbt.yml build/ci_install_mantis.sh build/ci_post_install.sh te…
+  · $ cat tests/ci_create_api_token.php tests/Mantis/MantisCoreBase.php | head -120; cat CONTRI…
+  · $ composer install --no-interaction 2>&1 | tail -5 && npm ci 2>&1 | tail -3; git status --s…
+  · $ grep -n "':'" vendor/adodb/adodb-php/drivers/adodb-mysqli.inc.php | head; grep -n "hostna…
+  · $ grep -n "port" vendor/adodb/adodb-php/drivers/adodb-mysqli.inc.php | head -20
+  · $ sed -n 1,80p admin/install.php | grep -n "config_inc\|path" ; grep -n "config_inc.php\|\$…
+  · $ head -60 build/check_lineterm.php; time php build/check_lineterm.php; echo rc=$?
+  · $ sed -n 60,200p build/check_lineterm.php
+  · $ git ls-files --eol | grep -E 'i/(crlf|mixed)' | head; echo ---; time (git ls-files -z '*.…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/compose.yaml
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.env.example
+  · $ sed -n 250,275p admin/install.php
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/build/local_with_server.sh
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/build/local_install.sh
+  · $ chmod +x build/local_install.sh build/local_with_server.sh && time build/local_install.sh…
+  · $ sed -i '' 's/\$HOSTNAME/$WEB_HOST/g; s/{HOSTNAME:=localhost}/{WEB_HOST:=127.0.0.1}/; s/ H…
+  · $ python3 - <<'EOF' p='.env.example' s=open(p).read() s=s.replace("""# Host name of the PHP…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/build/lint_php.sh
+  · $ sed -i '' 's/-n 40 -P 8/-n 1 -P 8/' build/lint_php.sh && sed -i '' 's/^# E_ALL/# php -l c…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/Makefile
+  · $ echo ".api-generated/" >> .gitignore && sed -n 1,80p tools/openapi/generate.mjs | grep -n…
+  · $ make && time make check-fast 2>&1 | tail -60
+  · $ docker compose down && sed -i '' 's/^services:/name: mantisbt\n\nservices:/' compose.yaml…
+  · $ python3 - <<'EOF' p='Makefile' s=open(p).read() s=s.replace("dev: db-up ## Run MantisBT a…
+  · $ mkdir -p .githooks && cat > .githooks/pre-push <<'EOF' #!/bin/sh # Runs the fast gate bef…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.github/workflows/harness.yml
+  · $ npx -y uw-harness --help 2>&1 | head -30
+  · $ which uw-harness; ls /Users/victor/Repos/unwritten/ 2>/dev/null | head
+  · $ grep -n "g_log_level\|g_log_destination\|g_show_detailed_errors\|g_display_errors\|g_emai…
+  · $ sed -n 5186,5225p config_defaults_inc.php; grep -n "require_api\|config_inc\|install.php"…
+  · $ sed -n 1,104p README.md | grep -v "^$" | head -80; sed -n 1,40p api/rest/index.php | grep…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/architecture.md
+  · $ for t in mantis_bug_table mantis_bug_text_table mantis_bugnote_table mantis_config_table …
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/product.md
+  · $ ls core/bugnote_api.php core/classes/BugFilterQuery.class.php manage_user_impersonate.php…
+  · $ mkdir -p docs/decisions && cat > docs/decisions/0001-record-architecture-decisions.md <<'…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/local-dev.md
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/deploy.md
+  · $ head -20 KEYS.md; ls docbook/*/en-US/Revision_History.xml; head -40 build/buildrelease-re…
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/observability.md
+  · $ grep -n "^function log_event\|date(\|sprintf\|error_log" core/logging_api.php | head; gre…
+  · $ sed -n 275,300p core/error_api.php; grep -n "APPLICATION ERROR\|error_application" lang/s…
+  · edit /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/observability.md
+  · $ grep -n "^function error_handler\|^function error_" core/error_api.php | head -5; tail -5…
+  · $ sed -i '' 's/(from `error_handler()` in `core\/error_api.php`)/(from `error_output()` in …
+  · $ grep -n "COUNT\|count" admin/db_stats.php | head -5; ls tests/rest | head -20; grep -n "a…
+  · $ grep -n "^class\|function test" tests/rest/RestIssueUpdateCategory.php tests/rest/RestIss…
+  · $ mkdir -p .agents/skills/{implement-change,debug-local,add-rest-endpoint,ui-page,release} …
+  · $ grep -n "_rest.php" api/rest/index.php | head; grep -n "Authorization" api/rest/restcore/…
+  · $ grep -n "Authorization\|HTTP_AUTHORIZATION\|header" api/rest/restcore/AuthMiddleware.php …
+  · write /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/AGENTS.md
+  · $ ln -s AGENTS.md CLAUDE.md && wc -l AGENTS.md && grep -rn "—" AGENTS.md CONTRIBUTING.md do…
+  · $ node /Users/victor/Repos/unwritten/uw-harness/dist/cli.js --help 2>&1 | head -30
+  · $ node /Users/victor/Repos/unwritten/uw-harness/dist/cli.js check . 2>&1 | tail -30; node /…
+  · $ grep -niE "password|secret" lang/strings_portuguese_standard.txt | grep -E "=\s*'[^']{0,}…
+  · $ env -i HOME=$HOME PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bas…
+  · $ php vendor/bin/phpunit --filter StringTest 2>&1 | tail -2; make check > /tmp/full2.log 2>…
+  · StructuredOutput
+  ✓ 29 files changed (12m 42s)
+
+▸ Verify
+  ✓ uw-harness check passed
+  $ make setup
+  ✓ setup gate passed in 12s
+  $ make check-fast
+  ✓ fast gate passed in 15s: 457 tests
+  $ make check
+  ✓ full gate passed in 63s: 744 tests
+  Measuring the baseline again on the base commit, with the dependencies that setup installed
+  $ vendor/bin/phpunit
+  ! before the harness: the test command did not run tests (exit 2, 0s)
+  Running setup and the fast gate on a clean checkout of the files that will be committed
+  $ make setup
+  ✓ setup gate passed in 12s
+  $ make check-fast
+  ✓ fast gate passed in 12s: 457 tests
+
+▸ Report
+  Running the fast gate again on the files uw-harness wrote
+  $ make check-fast
+  ✗ fast gate failed (exit 2) after 15s
+  ! the fast gate fails after uw-harness wrote its own files:
+     Container mantisbt-db-1 Waiting 
+     Container mantisbt-db-1 Healthy 
+    php -d opcache.jit=disable -d sendmail_path=/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/tests/fakesendmail.sh vendor/bin/phpunit --testsuite mantis
+    PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+    
+    Runtime:       PHP 8.5.3
+    Configuration: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/phpunit.xml
+    
+    ..................F............................................  63 / 404 ( 15%)
+    ............................................................... 126 / 404 ( 31%)
+    ............................................................... 189 / 404 ( 46%)
+    ............................................................... 252 / 404 ( 62%)
+    ............................................................... 315 / 404 ( 77%)
+    ............................................................... 378 / 404 ( 93%)
+    ..........................                                      404 / 404 (100%)
+    
+    Time: 00:10.377, Memory: 27.02 MB
+    
+    There was 1 failure:
+    
+    1) Mantis\tests\Mantis\ApiTokenApiTest::testParsedBearerTokenResolvesSameUserAsBareToken
+    Bare test suite token should resolve to a user
+    Failed asserting that false is not false.
+    
+    /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/tests/Mantis/ApiTokenApiTest.php:126
+    
+    FAILURES!
+    Tests: 404, Assertions: 681, Failures: 1.
+    make: *** [test-unit] Error 1
+    
+
+  Knowledge
+  ✓ L1 An AGENTS.md at the root  AGENTS.md exists, 88 lines
+  ✓ L1 AGENTS.md matches the repository  14 commands and every link in AGENTS.md resolve
+  ✓ L1 An architecture overview with a diagram  docs/architecture.md has a diagram
+  ✓ L1 What the product does and for whom  docs/product.md exists
+  ✓ L2 Architecture decision records  3 decision records
+  ✓ L2 An implementation log  docs/harness/log.md exists
+  ✓ L1 Team agreements  CONTRIBUTING.md exists
+
+  Verification loops
+  ✓ L1 One entry point for tasks  Makefile: 15 tasks
+  ✓ L2 A fast gate  `make check-fast` verified: 457 tests reported
+  ✓ L2 A full gate  `make check` verified: 744 tests reported
+  ✓ L1 Automated tests  68 test files
+  ✓ L2 CI runs the gate on every change  .github/workflows/harness.yml runs uw-harness verify
+  ✓ L3 Git hooks run the fast gate  .githooks exists
+
+  Local environment
+  ✓ L1 The app runs locally with one command  compose.yaml and target "dev"
+  ◐ L1 Configuration is documented, no secret in git  .env.example exists, but 1 file holds secret-looking values: lang/strings_portuguese_standard.txt (password or secret)
+  ✓ L1 Toolchain versions are pinned  .tool-versions exists
+
+  Delivery and operations
+  ◐ L3 Deployment is explicit in the repository  docs/deploy.md has open questions for a human
+  ◐ L3 Production can be observed  docs/observability.md has open questions for a human
+
+  Capabilities
+  ✓ L2 Skills for repeated tasks  5 skills
+
+  Before  harness coverage 27/100  level 0 (not yet oriented)  4 pass, 2 partial, 13 missing
+  After   harness coverage 92/100  level 2 (self-checking)  16 pass, 3 partial, 0 missing
+
+  ✗ Gates not verified: see docs/harness/log.md
+  ! 1 added lines relax lint or test rules: .github/workflows/harness.yml
+  ! 1 file already in the repository holds secret-looking values: lang/strings_portuguese_standard.txt (password or secret)
+  4 dependency or new files to review: build/lint_php.sh, build/local_install.sh, build/local_with_server.sh, package.json
+  Committed the harness as 94aeccdb0 on uw-harness/20261101-1917.
+
+  6 questions need a human
+  - Which branches are maintained besides master (for example master-2.28), and what is the rule for backporting fixes? docs/deploy.md  https://docs.unwritten.sh/harness/guides/deploy/
+  - Who publishes MantisBT releases (tarballs on SourceForge or GitHub?), and how is the mantisbt.org/bugs instance upgraded and rolled back? docs/deploy.md  https://docs.unwritten.sh/harness/guides/deploy/
+  - For the mantisbt.org instance, where are the PHP and MantisBT logs kept, and is there any monitoring or alert channel? docs/observability.md  https://docs.unwritten.sh/harness/guides/observability/
+  - Is it acceptable for the local fast gate (make check-fast) to need a Docker MySQL database, or should the team split out tests that run without an installed instance? docs/local-dev.md  https://docs.unwritten.sh/harness/requirements/fast-gate/
+  - Which database should be the default for local development: MySQL/MariaDB (current choice in compose.yaml) or PostgreSQL? docs/local-dev.md  https://docs.unwritten.sh/harness/requirements/local-env/
+  - Should the harness files (AGENTS.md, Makefile, compose.yaml, docs/harness) be proposed upstream to mantisbt/mantisbt, or stay in a fork only? CONTRIBUTING.md  https://docs.unwritten.sh/harness/requirements/agreements/
+
+  Findings and work left undone
+  - env-example: The secret scan flags lang/strings_portuguese_standard.txt ($s_password = 'Palavra-chave', a translated UI label). This is a false positive. The file comes from translatewiki.net and agents must not edit it, so env-example stays partial.
+  - ci: `npx -y uw-harness verify` returned 404 from the npm registry during this build: the package is not published yet. The new workflow .github/workflows/harness.yml will fail until uw-harness is on npm. I checked locally with the CLI from a local checkout (`check` passes).
+  - fast-gate: build/check_lineterm.php is not in the lint. It always exits 0 and scans vendor/ and node_modules/. git ls-files --eol shows two vendored files with CRLF or mixed line endings (css/bootstrap-datetimepicker-4.17.49.min.css, library/rssbuilder/class.RSS_V_200.inc.php). I left them unchanged because they are product and vendored code.
+  - full-gate: The local gates cover MySQL and the local PHP version only (8.5.3 on this machine). PostgreSQL, the PHP 8.1 to 8.6 matrix and the DocBook/Publican build stay in the existing CI workflows.
+
+  Next steps
+  1. Read docs/harness/brief.md, then review the branch: git log master..uw-harness/20261101-1917
+  2. Answer the open questions: search for "uw-harness:todo" in docs/
+  3. Prove the harness on one real task: npx uw-harness prove
+     Run the REST tests that PHPUnit never collects
+     tests/rest/RestIssueUpdateCategory.php and tests/rest/RestIssueUpdateVersion.php contain test methods, but their file names do not end with Test.php, so the 'rest' suite in phpunit.xml never runs them. Rename them (and their classes) to RestIssueUpdateCategoryTest and RestIssueUpdateVersionTest, then fix or report whatever fails once they run.
+     - Done when: Both files end with Test.php and their class names match the file names
+     - Done when: `build/local_with_server.sh php vendor/bin/phpunit --testsuite rest` lists and runs testUpdateIssueCategory1, testUnsetVersion and the other test methods from both files
+     - Done when: `make check` passes, or each failing test is marked skipped with a reason that names a filed issue, and the failure is recorded in docs/harness/log.md
+  4. Push the branch and open a pull request. CI should run `npx uw-harness verify`.
+
+  Done in 19m 23s. Agent transcripts: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.git/uw-harness
+run exit 1

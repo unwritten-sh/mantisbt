@@ -1,0 +1,116 @@
+{
+  "at": "2026-11-01T19:15:17.461Z",
+  "agent": "claude",
+  "base": "2f80baa3edd5b6895be53efe03b98d0d257a1497",
+  "harness_branch": "uw-harness/20261101-1951",
+  "task": {
+    "title": "Support short array syntax in ConfigParser",
+    "description": "ConfigParser (core/classes/ConfigParser.class.php), used by adm_config_report.php to parse configuration values, only accepts array( ... ): the input \"[ NEW_ => REPORTER ]\" throws 'Unexpected token \"[\"', although it is valid PHP. Add support for [ ... ] arrays, including nested ones and mixed with array( ... ), without using eval().",
+    "acceptance": [
+      "ConfigParser::parse() returns array( NEW_ => REPORTER ) for the input \"[ NEW_ => REPORTER ]\" and array( 'a' => array( 1, 2 ) ) for \"[ 'a' => [ 1, 2 ] ]\".",
+      "New tests for these cases and for an unclosed '[' (which must throw an Exception) are added to tests/Unit/ConfigParserUnitTest.php.",
+      "composer run check-fast passes, and tests/Mantis/ConfigParserTest.php still passes in composer run check."
+    ]
+  },
+  "duration_s": 86,
+  "status": "partial",
+  "acceptance": [
+    {
+      "criterion": "ConfigParser::parse() returns array( NEW_ => REPORTER ) for \"[ NEW_ => REPORTER ]\" and array( 'a' => array( 1, 2 ) ) for \"[ 'a' => [ 1, 2 ] ]\".",
+      "met": true,
+      "evidence": "testShortArrayConstants and testShortArrayNested (assertSame) pass: `vendor/bin/phpunit --no-configuration --bootstrap vendor/autoload.php tests/Unit/ConfigParserUnitTest.php` -> OK (6 tests, 6 assertions)."
+    },
+    {
+      "criterion": "New tests for these cases and for an unclosed '[' (which must throw an Exception) are added to tests/Unit/ConfigParserUnitTest.php.",
+      "met": true,
+      "evidence": "tests/Unit/ConfigParserUnitTest.php created with testShortArrayConstants, testShortArrayNested, testShortArrayUnclosed (expectException Exception), plus mixed, empty and mismatched-bracket cases; all pass."
+    },
+    {
+      "criterion": "composer run check-fast passes, and tests/Mantis/ConfigParserTest.php still passes in composer run check.",
+      "met": false,
+      "evidence": "Not verifiable: composer.json in this worktree has no 'scripts' section, so neither check-fast nor check exists. `vendor/bin/phpunit --filter ConfigParserTest` fails with 'Cannot open bootstrap script tests/bootstrap.php', and there is no config/config_inc.php or DB. Substitute check: an inline php -r script loaded the providers and error cases of tests/Mantis/ConfigParserTest.php and compared the parser output with eval() and the var_export round trip: '53 cases, 0 failures'. Both changed files pass `php -l`."
+    }
+  ],
+  "criteria_requested": 3,
+  "criteria_met": 2,
+  "human_needed": [
+    {
+      "question": "Where do `composer run check-fast` / `composer run check`, phpunit.unit.xml and tests/Unit/ come from? Should this branch add them, or must it be rebased onto a branch that already has them?",
+      "why": "The acceptance criteria and the implement-change skill depend on these gates, but they are not in this worktree. Inventing their content (which linters, which suites, the Docker setup) would be guessing a team decision."
+    }
+  ],
+  "gaps": [
+    {
+      "file": "composer.json",
+      "problem": "No 'scripts' section: `composer run check-fast`, `composer run check` and `composer run setup`, which the task and the implement-change skill name, do not exist in this worktree."
+    },
+    {
+      "file": "phpunit.unit.xml",
+      "problem": "Missing, along with tests/Unit/. The skill says to run `vendor/bin/phpunit -c phpunit.unit.xml`; I had to use `--no-configuration --bootstrap vendor/autoload.php` and require constant_inc.php and the class files from the test itself."
+    },
+    {
+      "file": "phpunit.xml",
+      "problem": "Points to tests/bootstrap.php, which does not exist (only bootstrap.php.sample). No config/config_inc.php or DB either, so tests/Mantis/ConfigParserTest.php cannot run locally, and nothing documents how to set up the environment without the missing `check` script."
+    },
+    {
+      "file": "docs/product.md",
+      "problem": "The skill links docs/product.md, docs/architecture.md, AGENTS.md and docs/harness/log.md. None of them exist in this worktree; the skill itself is loaded from a sibling checkout (../repo/.claude)."
+    },
+    {
+      "file": null,
+      "problem": "Writing a temporary helper script under /tmp was denied by permissions, so I ran the ad hoc regression check inline with `php -r`."
+    }
+  ],
+  "summary": "ConfigParser::process_array() now accepts short `[ ... ]` arrays as well as `array( ... )`. This works at the top level, for nested values, for keyed values, and when the two syntaxes are mixed. The closing token (']' or ')') is tracked for each array level, and no eval() is used. I added tests/Unit/ConfigParserUnitTest.php with 6 tests (the two required inputs, mixed syntax, empty `[]`, unclosed '[', and '[' closed by ')'), and they pass with PHPUnit run by hand. The gates named in the task do not exist in this worktree: there is no `check-fast` or `check` composer script, no phpunit.unit.xml, no tests/bootstrap.php and no config_inc.php or database. So I could not run them, and the status is partial. As a stand-in, I ran every data and error case from tests/Mantis/ConfigParserTest.php directly against the parser without a database: 53 cases, 0 failures.",
+  "files_changed": [
+    "core/classes/ConfigParser.class.php",
+    "tests/Unit/ConfigParserUnitTest.php"
+  ],
+  "skipped_test_files": [],
+  "relaxed_checks": [],
+  "own_tests": {
+    "command": "vendor/bin/phpunit",
+    "ok": false,
+    "tests": null,
+    "note": "ran no test (exit 2)"
+  },
+  "harness_gates": {
+    "ok": true,
+    "tests": {
+      "ran": 763,
+      "skipped": 0,
+      "failed": 0
+    },
+    "runs": [
+      {
+        "name": "setup",
+        "ok": true,
+        "tests": null,
+        "tail": ""
+      },
+      {
+        "name": "fast",
+        "ok": true,
+        "tests": {
+          "ran": 19,
+          "skipped": 0,
+          "failed": 0
+        },
+        "tail": ""
+      },
+      {
+        "name": "full",
+        "ok": true,
+        "tests": {
+          "ran": 763,
+          "skipped": 0,
+          "failed": 0
+        },
+        "tail": ""
+      }
+    ],
+    "conflicts_resolved_with_control_version": [
+      "tests/Unit/ConfigParserUnitTest.php"
+    ]
+  }
+}

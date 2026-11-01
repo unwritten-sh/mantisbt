@@ -1,0 +1,184 @@
+diff --git a/core/classes/ConfigParser.class.php b/core/classes/ConfigParser.class.php
+index c0bcb974d..da094a3b6 100644
+--- a/core/classes/ConfigParser.class.php
++++ b/core/classes/ConfigParser.class.php
+@@ -69,6 +69,7 @@ class ConfigParser
+ 	public function parse( $p_extra_tokens = self::EXTRA_TOKENS_ERROR ) {
+ 		switch( $this->tokens->type() ) {
+ 			case T_ARRAY:
++			case '[':
+ 				$t_result = $this->process_array();
+ 				break;
+ 
+@@ -110,6 +111,7 @@ class ConfigParser
+ 
+ 	/**
+ 	 * Recursively process array declarations.
++	 * Supports both long `array( ... )` and short `[ ... ]` syntax.
+ 	 * @return array
+ 	 * @throws Exception when there's an invalid token
+ 	 */
+@@ -117,11 +119,17 @@ class ConfigParser
+ 		$t_array = array();
+ 		$t_count = 0;
+ 
+-		$this->tokens->ensure_matches( T_ARRAY );
+-		$this->tokens->ensure_matches( '(' );
++		if( $this->tokens->matches( '[' ) ) {
++			$this->tokens->pop();
++			$t_close = ']';
++		} else {
++			$this->tokens->ensure_matches( T_ARRAY );
++			$this->tokens->ensure_matches( '(' );
++			$t_close = ')';
++		}
+ 
+ 		# Loop until we reach the end of the array
+-		while( !$this->tokens->matches( ')' ) ) {
++		while( !$this->tokens->matches( $t_close ) ) {
+ 			# A comma is required before each element except the first one
+ 			if ($t_count > 0) {
+ 				$this->tokens->ensure_matches(',');
+@@ -130,6 +138,7 @@ class ConfigParser
+ 			switch( $this->tokens->type() ) {
+ 				# Nested array
+ 				case T_ARRAY:
++				case '[':
+ 					$t_array[] = $this->process_array();
+ 					break;
+ 
+@@ -145,7 +154,7 @@ class ConfigParser
+ 					if( $this->tokens->matches( T_DOUBLE_ARROW ) ) {
+ 						# key => value
+ 						$this->tokens->pop();
+-						if( $this->tokens->matches( T_ARRAY ) ) {
++						if( $this->tokens->matches( T_ARRAY ) || $this->tokens->matches( '[' ) ) {
+ 							$t_array[$t_str] = $this->process_array();
+ 						} else {
+ 							$t_array[$t_str] = $this->process_value();
+@@ -156,7 +165,7 @@ class ConfigParser
+ 					}
+ 					break;
+ 
+-				case ')':
++				case $t_close:
+ 					# Cover the trailing ',' case
+ 					break;
+ 
+@@ -166,7 +175,7 @@ class ConfigParser
+ 
+ 			$t_count++;
+ 		}
+-		$this->tokens->ensure_matches( ')' );
++		$this->tokens->ensure_matches( $t_close );
+ 
+ 		return $t_array;
+ 	}
+diff --git a/tests/Unit/ConfigParserUnitTest.php b/tests/Unit/ConfigParserUnitTest.php
+new file mode 100644
+index 000000000..741a97a5f
+--- /dev/null
++++ b/tests/Unit/ConfigParserUnitTest.php
+@@ -0,0 +1,102 @@
++<?php
++# MantisBT - A PHP based bugtracking system
++
++# MantisBT is free software: you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation, either version 2 of the License, or
++# (at your option) any later version.
++#
++# MantisBT is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with MantisBT.  If not, see <http://www.gnu.org/licenses/>.
++
++/**
++ * Unit tests for ConfigParser that do not need core.php or a database.
++ *
++ * @package    Tests
++ * @subpackage UnitTests
++ * @copyright Copyright 2026  MantisBT Team - mantisbt-dev@lists.sourceforge.net
++ * @link http://www.mantisbt.org
++ */
++
++namespace Mantis\tests\Unit;
++
++use ConfigParser;
++use Exception;
++use PHPUnit\Framework\TestCase;
++
++require_once __DIR__ . '/../../core/constant_inc.php';
++require_once __DIR__ . '/../../core/classes/Tokenizer.class.php';
++require_once __DIR__ . '/../../core/classes/ConfigParser.class.php';
++
++/**
++ * Test cases for short array syntax support in ConfigParser
++ *
++ * @package    Tests
++ * @subpackage ConfigParser
++ */
++class ConfigParserUnitTest extends TestCase {
++
++	/**
++	 * Short array with constants as key and value
++	 * @throws Exception
++	 */
++	public function testShortArrayConstants() {
++		$t_parser = new ConfigParser( '[ NEW_ => REPORTER ]' );
++		$this->assertSame( array( NEW_ => REPORTER ), $t_parser->parse() );
++	}
++
++	/**
++	 * Nested short arrays
++	 * @throws Exception
++	 */
++	public function testShortArrayNested() {
++		$t_parser = new ConfigParser( "[ 'a' => [ 1, 2 ] ]" );
++		$this->assertSame( array( 'a' => array( 1, 2 ) ), $t_parser->parse() );
++	}
++
++	/**
++	 * Short and long array syntax mixed, with trailing comma and empty arrays
++	 * @throws Exception
++	 */
++	public function testShortArrayMixedWithLongSyntax() {
++		$t_parser = new ConfigParser( "array( [ 1, array( 2, [] ), ], 'k' => [ 'x' => array() ] )" );
++		$this->assertSame(
++			array( array( 1, array( 2, array() ) ), 'k' => array( 'x' => array() ) ),
++			$t_parser->parse()
++		);
++	}
++
++	/**
++	 * Empty short array
++	 * @throws Exception
++	 */
++	public function testShortArrayEmpty() {
++		$t_parser = new ConfigParser( '[]' );
++		$this->assertSame( array(), $t_parser->parse() );
++	}
++
++	/**
++	 * An unclosed '[' must throw an exception
++	 * @throws Exception
++	 */
++	public function testShortArrayUnclosed() {
++		$this->expectException( Exception::class );
++		$t_parser = new ConfigParser( '[ 1, 2' );
++		$t_parser->parse();
++	}
++
++	/**
++	 * Mismatched brackets must throw an exception
++	 * @throws Exception
++	 */
++	public function testShortArrayMismatchedClose() {
++		$this->expectException( Exception::class );
++		$t_parser = new ConfigParser( '[ 1, 2 )' );
++		$t_parser->parse();
++	}
++}

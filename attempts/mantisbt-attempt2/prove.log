@@ -1,0 +1,62 @@
+uw-harness prove  /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo
+
+▸ Task
+  Correct the outdated release instructions in build/README.md
+  build/README.md tells release managers to run ./scripts/buildrelease-repo.py, but the script is in build/. It also describes Travis scripts that no longer exist, while CI uses GitHub Actions with build/ci_install_mantis.sh and build/ci_post_install.sh.
+  - Done when: build/README.md uses ./build/buildrelease-repo.py in the build command
+  - Done when: The Travis section is replaced by a description of build/ci_install_mantis.sh, build/ci_post_install.sh and .github/workflows/mantisbt.yml
+  - Done when: docs/deploy.md no longer says build/README.md is out of date
+  - Done when: make check-fast passes and docs/harness/log.md has a dated entry
+  Agent: claude. It works alone on a new branch; you review the result.
+
+▸ Before
+  $ make setup
+  ✓ setup gate passed in 2s
+  $ make check-fast
+  ✓ fast gate passed in 1s: 89 tests
+  $ make check
+  ✓ full gate passed in 76s: 833 tests
+
+▸ Work
+  Created branch uw-harness/prove-20261101-1827 from uw-harness/20261101-1807
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat build/README.md; ls …
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat build/ci_install_man…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -rn "out of date\|t…
+  · search out of date|[Tt]ravis|scripts/buildrelease
+  · read /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/build/README.md
+  · read /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/deploy.md
+  · read /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/harness/log.md
+  · edit /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/build/README.md
+  · edit /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/deploy.md
+  · edit /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/docs/harness/log.md
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; make check-fast 2>&1 | t…
+  · StructuredOutput
+  ✓ agent reports: done, 3 files changed
+
+▸ Verify
+  $ make check-fast
+  ✓ fast gate passed in 1s: 89 tests
+  $ make check
+  ✓ full gate passed in 76s: 833 tests
+
+▸ Report
+  Running the fast gate again on the files uw-harness wrote
+  $ make check-fast
+  ✓ fast gate passed in 1s: 89 tests
+  Agent status: done. Acceptance criteria met (reported by the agent): 4 of 4
+    ✓ build/README.md uses ./build/buildrelease-repo.py in the build command build/README.md line 36: ./build/buildrelease-repo.py --fresh --docbook --ref release-$VERSION ...; grep for 'scripts/buildrelease' finds no match in build/README.md.
+    ✓ The Travis section is replaced by a description of build/ci_install_mantis.sh, build/ci_post_install.sh and .github/workflows/mantisbt.yml The 'Continuous Integration' section of build/README.md now describes the workflow (PHP versions, mysqli and pgsql, web server) and both scripts (installer POST to admin/install.php; seed data, API token, tests/bootstrap.php, config additions). No Travis mention is left in the file.
+    ✓ docs/deploy.md no longer says build/README.md is out of date grep 'out of date' docs/deploy.md finds no match. Line 26 now says build/README.md has the same steps and describes the CI scripts used by mantisbt.yml.
+    ✓ make check-fast passes and docs/harness/log.md has a dated entry make check-fast: OpenAPI valid, PHPUnit OK (89 tests, 130730 assertions). docs/harness/log.md has the new section '## 2026-11-01: correct the release instructions in build/README.md'.
+  ✓ Gates after the task. Tests before: 833 tests. After: 833 tests.
+  Fix rounds after a gate failed: 0. Questions for a human: 0.
+
+  Gaps in the harness reported by the agent
+  - AGENTS.md: There is no guidance for documentation-only changes. It does not say whether make check is needed or whether a test is expected when only Markdown changes. The four skills all cover code changes.
+  - docs/harness/log.md: AGENTS.md says to add an entry to this log but does not say where. The file mixes 'Notes from the harness build', a dated build section and a long changed-files list, so it is not clear whether new entries go at the end or at the top. I added mine at the end.
+  - build/ci_post_install.sh: The seed project is still described as 'Travis-CI Test Project'. This is a leftover Travis reference outside the task scope. I did not change it because tests may read the seed data.
+
+  ✓ Done without human help.
+  Committed as f8ca1a78b on uw-harness/prove-20261101-1827. Review it like any pull request.
+  Done in 3m 24s. Agent transcripts: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.git/uw-harness
+prove exit 0

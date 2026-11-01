@@ -1,0 +1,18 @@
+fatal: '/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/control-tree' is not a working tree
+Preparing worktree (detached HEAD 2f80baa3e)
+  · $ cat build/README.md; echo ----; cat docs/deploy.md; echo ----; ls build docs docs/harness…
+  · $ pwd; git status --short | head; ls; ls -a | head -50; find . -name "deploy.md" -not -path…
+  · $ ls -a | grep -i -E "claude|agents|harness|^\.[a-z]"; grep -rn "check-fast\|deploy.md" --i…
+  · $ grep -rn "travis\|scripts/buildrelease" --exclude-dir=node_modules --exclude-dir=vendor -…
+  · $ python3 - <<'EOF' p='build/README.md' s=open(p).read() s=s.replace("./scripts/buildreleas…
+  · StructuredOutput
+  $ vendor/bin/phpunit
+  ! before the harness: the test command did not run tests (exit 2, 0s)
+fatal: '/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree' is not a working tree
+Preparing worktree (detached HEAD 4c55f876d)
+  $ make setup
+  ✓ setup gate passed in 2s
+  $ make check-fast
+  ✗ fast gate failed (exit 2) after 1s
+control: partial, 2/4 criteria, 1 questions, 39s, own tests: ran no test (exit 2), harness gates: FAIL
+control exit 0

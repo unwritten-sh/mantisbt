@@ -1,0 +1,54 @@
+uw-harness prove  /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo
+
+▸ Task
+  Fix stale paths in build/README.md
+  build/README.md tells release managers to run ./scripts/buildrelease-repo.py, but the script is in build/. Its 'Continuous Integration' section also describes Travis scripts (_travis_before_script.sh, _travis_script.sh, .travis.yml) that no longer exist; CI now uses build/ci_install_mantis.sh and build/ci_post_install.sh from .github/workflows/mantisbt.yml.
+  - Done when: The build command in build/README.md calls ./build/buildrelease-repo.py, a file that exists.
+  - Done when: The 'Continuous Integration' section names ci_install_mantis.sh and ci_post_install.sh and .github/workflows/mantisbt.yml, and no longer mentions Travis.
+  - Done when: No file other than build/README.md changes, and make check-fast still passes.
+  Agent: claude. It works alone on a new branch; you review the result.
+
+▸ Before
+  $ make setup
+  ✓ setup gate passed in 3s
+  $ make check-fast
+  ✓ fast gate passed in 11s: 457 tests
+  $ make check
+  ✓ full gate passed in 71s: 744 tests
+
+▸ Work
+  Created branch uw-harness/prove-20261101-1758 from uw-harness/20261101-1743
+  · $ cat -n build/README.md; ls build .github/workflows; grep -n "ci_\|run:" .github/workflows…
+  · $ sed -n 60,120p .github/workflows/mantisbt.yml; head -20 build/ci_install_mantis.sh build/…
+  · $ python3 - <<'EOF' p='build/README.md' s=open(p).read() s=s.replace("./scripts/buildreleas…
+  · $ grep -n "MANTIS_BOOTSTRAP\|MANTIS_CONFIG" build/ci_post_install.sh | head; git status --s…
+  · StructuredOutput
+  ✓ agent reports: done, 1 files changed
+
+▸ Verify
+  $ make check-fast
+  ✓ fast gate passed in 11s: 457 tests
+  $ make check
+  ✓ full gate passed in 62s: 744 tests
+
+▸ Report
+  ! not committed (generated or large files): build/README.md, build/dev_install.sh, build/dev_with_server.sh
+  Running the fast gate again on the files uw-harness wrote
+  $ make check-fast
+  ✓ fast gate passed in 10s: 457 tests
+  Agent status: done. Acceptance criteria met (reported by the agent): 3 of 3
+    ✓ The build command in build/README.md calls ./build/buildrelease-repo.py, a file that exists. The git diff shows line 36 now reads './build/buildrelease-repo.py --fresh ...'. `test -x build/buildrelease-repo.py` prints exec-ok.
+    ✓ The 'Continuous Integration' section names ci_install_mantis.sh and ci_post_install.sh and .github/workflows/mantisbt.yml, and no longer mentions Travis. The diff adds entries for _ci_install_mantis.sh_ and _ci_post_install.sh_, each with '(used in _.github/workflows/mantisbt.yml_)'. `grep -ni travis build/README.md` returns nothing. Lines 110 and 113 of mantisbt.yml run these two scripts.
+    ✓ No file other than build/README.md changes, and make check-fast still passes. `git status --short` shows only ' M build/README.md' plus build/dev_install.sh and build/dev_with_server.sh, which were already untracked before I started. `make check-fast` ends with 'OK (457 tests, 751 assertions)'.
+  ✓ Gates after the task. Tests before: 744 tests. After: 744 tests.
+  Fix rounds after a gate failed: 0. Questions for a human: 0.
+
+  Gaps in the harness reported by the agent
+  - CLAUDE.md: AGENTS.md says to add a docs/harness/log.md entry after each significant change, but it does not say whether docs-only changes count. Here that rule conflicted with the task's 'no file other than build/README.md changes' criterion, and I had to choose. I followed the task and skipped the log entry. AGENTS.md should say that the log is optional for trivial doc fixes, or that task scope overrides it.
+  - CLAUDE.md: AGENTS.md says nothing about how to verify a documentation-only change (no Markdown lint, no link or path checker). I checked the paths by hand. A small check that the script paths in build/README.md and docs/*.md exist would catch this kind of drift.
+  - build/dev_install.sh: The harness scripts build/dev_install.sh and build/dev_with_server.sh, which AGENTS.md references, are untracked in git on this branch. They show up as changes in git status even though the task did not touch them, which makes the 'no other file changes' check confusing.
+
+  ✓ Done without human help.
+  Committed as 6a6068153 on uw-harness/prove-20261101-1758. Review it like any pull request.
+  Done in 3m 27s. Agent transcripts: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.git/uw-harness
+prove exit 0

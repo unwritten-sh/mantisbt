@@ -1,0 +1,14 @@
+fatal: '/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/control-tree' is not a working tree
+Preparing worktree (detached HEAD 2f80baa3e)
+  $ vendor/bin/phpunit
+  ! before the harness: the test command did not run tests (exit 2, 0s)
+fatal: '/Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree' is not a working tree
+Preparing worktree (detached HEAD 1213de4e1)
+  $ composer run setup
+  ✓ setup gate passed in 3s
+  $ composer run check-fast
+  ✓ fast gate passed in 5s: 19 tests
+  $ composer run check
+  ✓ full gate passed in 79s: 763 tests
+control: partial, 2/3 criteria, 1 questions, 86s, own tests: ran no test (exit 2), harness gates: pass
+exit 0

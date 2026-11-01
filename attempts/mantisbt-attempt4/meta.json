@@ -1,0 +1,11 @@
+{
+  "slug": "mantisbt",
+  "upstream": "https://github.com/mantisbt/mantisbt",
+  "base_sha": "2f80baa3edd5b6895be53efe03b98d0d257a1497",
+  "base_branch": "master",
+  "started_at": "2026-11-01T18:13:10Z",
+  "uw_harness_sha": "c205e0d5f6a7eda39db20f4d4d4bdc10e826ff33",
+  "uw_harness_version": "0.3.0",
+  "agent": "claude",
+  "agent_version": "2.1.316 (Claude Code)"
+}

@@ -1,0 +1,55 @@
+uw-harness prove  /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo
+
+▸ Task
+  Run the REST tests that PHPUnit never collects
+  tests/rest/RestIssueUpdateCategory.php and tests/rest/RestIssueUpdateVersion.php contain test methods, but their file names do not end with Test.php, so the 'rest' suite in phpunit.xml never runs them. Rename them (and their classes) to RestIssueUpdateCategoryTest and RestIssueUpdateVersionTest, then fix or report whatever fails once they run.
+  - Done when: Both files end with Test.php and their class names match the file names
+  - Done when: `build/local_with_server.sh php vendor/bin/phpunit --testsuite rest` lists and runs testUpdateIssueCategory1, testUnsetVersion and the other test methods from both files
+  - Done when: `make check` passes, or each failing test is marked skipped with a reason that names a filed issue, and the failure is recorded in docs/harness/log.md
+  Agent: claude. It works alone on a new branch; you review the result.
+
+▸ Before
+  $ make setup
+  ✓ setup gate passed in 17s
+  $ make check-fast
+  ✓ fast gate passed in 18s: 457 tests
+  $ make check
+  ✓ full gate passed in 91s: 744 tests
+
+▸ Work
+  Created branch uw-harness/prove-20261101-1934 from uw-harness/20261101-1917
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; ls tests/rest; cat tests…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; git mv tests/rest/RestIs…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; build/local_with_server.…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; f=tests/rest/RestIssueUp…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; php vendor/bin/phpunit -…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat >> docs/harness/log.…
+  · StructuredOutput
+  ✓ agent reports: done, 3 files changed
+
+▸ Verify
+  $ make check-fast
+  ✓ fast gate passed in 18s: 457 tests
+  $ make check
+  ✓ full gate passed in 80s: 772 tests
+
+▸ Report
+  Running the fast gate again on the files uw-harness wrote
+  $ make check-fast
+  ✓ fast gate passed in 13s: 457 tests
+  Agent status: done. Acceptance criteria met (reported by the agent): 3 of 3
+    ✓ Both files end with Test.php and their class names match the file names tests/rest/RestIssueUpdateCategoryTest.php declares class RestIssueUpdateCategoryTest, and tests/rest/RestIssueUpdateVersionTest.php declares class RestIssueUpdateVersionTest (git shows both as renames).
+    ✓ `build/local_with_server.sh php vendor/bin/phpunit --testsuite rest` lists and runs testUpdateIssueCategory1, testUnsetVersion and the other test methods from both files `phpunit --testsuite rest --list-tests` lists testUpdateIssueCategory1 #0-#12, testUpdateIssueCategory2, testUpdateClearCategory #0-#3, testUnsetVersion (9 data sets) and testFailToUnsetVersion "dummy". `build/local_with_server.sh php vendor/bin/phpunit --testsuite rest --filter 'RestIssueUpdate(Category|Version)Test'` gives OK (28 tests, 236 assertions) with exit 0.
+    ✓ `make check` passes, or each failing test is marked skipped with a reason that names a filed issue, and the failure is recorded in docs/harness/log.md `make check` gives OK (772 tests, 2786 assertions), up from 744. No test fails and none is skipped. `make check-fast` also passes. The deprecations found and fixed are recorded in docs/harness/log.md.
+  ✓ Gates after the task. Tests before: 744 tests. After: 772 tests.
+  Fix rounds after a gate failed: 0. Questions for a human: 0.
+
+  Gaps in the harness reported by the agent
+  - AGENTS.md: AGENTS.md does not say that phpunit.xml sets failOnAllIssues=true, so any PHP or PHPUnit deprecation (for example implicit nullable parameters or non-static data providers on PHP 8.5 / PHPUnit 10.5) fails the gate. The full harness log mentions this as a risk, but a short line in AGENTS.md Conventions or How to verify would save the trial run. Example rule: 'data providers must be static, and deprecations fail the suite'.
+  - AGENTS.md: The only way to find test files that PHPUnit silently skips is to search for them by hand. No gate or lint step fails on a test class in tests/ whose file name does not end in Test.php, so this bug could happen again. A small check in make lint, for example 'classes that define test* methods must live in *Test.php files', would catch it.
+  - AGENTS.md: AGENTS.md does not say that the rest suite filtered to a few classes runs in a few seconds with `build/local_with_server.sh php vendor/bin/phpunit --testsuite rest --filter <Class>`. That is the fastest loop for REST test work. The current example shows only the full suite.
+
+  ✓ Done without human help.
+  Committed as fe31dd3b4 on uw-harness/prove-20261101-1934. Review it like any pull request.
+  Done in 6m 25s. Agent transcripts: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.git/uw-harness
+prove exit 0

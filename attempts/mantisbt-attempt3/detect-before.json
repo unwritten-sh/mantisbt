@@ -1,0 +1,225 @@
+{
+  "spec_version": 4,
+  "score": 27,
+  "level": 0,
+  "counts": {
+    "pass": 4,
+    "partial": 2,
+    "fail": 13
+  },
+  "facts": {
+    "git": {
+      "isRepo": true,
+      "branch": "master",
+      "commits": 15238,
+      "lastCommit": "2026-11-01",
+      "dirty": false
+    },
+    "files": 1448,
+    "languages": [
+      {
+        "name": "PHP",
+        "files": 533
+      },
+      {
+        "name": "JavaScript",
+        "files": 337
+      },
+      {
+        "name": "Shell",
+        "files": 1
+      }
+    ],
+    "runners": [
+      {
+        "kind": "npm",
+        "file": "package.json",
+        "targets": [
+          "api:validate",
+          "api:generate",
+          "api:postman",
+          "api:bruno",
+          "api:docs"
+        ]
+      }
+    ],
+    "manifests": [
+      "composer.json",
+      "package.json"
+    ],
+    "harnessFiles": []
+  },
+  "requirements": [
+    {
+      "id": "agents-file",
+      "area": "knowledge",
+      "level": 1,
+      "status": "fail",
+      "evidence": [
+        "no AGENTS.md"
+      ]
+    },
+    {
+      "id": "agents-file-accurate",
+      "area": "knowledge",
+      "level": 1,
+      "status": "fail",
+      "evidence": [
+        "no AGENTS.md to check"
+      ]
+    },
+    {
+      "id": "architecture",
+      "area": "knowledge",
+      "level": 1,
+      "status": "fail",
+      "evidence": [
+        "no docs/architecture.md"
+      ]
+    },
+    {
+      "id": "product",
+      "area": "knowledge",
+      "level": 1,
+      "status": "partial",
+      "evidence": [
+        "only README.md (104 lines), no docs/product.md"
+      ]
+    },
+    {
+      "id": "decisions",
+      "area": "knowledge",
+      "level": 2,
+      "status": "fail",
+      "evidence": [
+        "no docs/decisions/"
+      ]
+    },
+    {
+      "id": "implementation-log",
+      "area": "knowledge",
+      "level": 2,
+      "status": "fail",
+      "evidence": [
+        "no docs/harness/log.md"
+      ]
+    },
+    {
+      "id": "agreements",
+      "area": "knowledge",
+      "level": 1,
+      "status": "pass",
+      "evidence": [
+        "CONTRIBUTING.md exists"
+      ]
+    },
+    {
+      "id": "task-runner",
+      "area": "loops",
+      "level": 1,
+      "status": "pass",
+      "evidence": [
+        "package.json: 5 tasks"
+      ]
+    },
+    {
+      "id": "fast-gate",
+      "area": "loops",
+      "level": 2,
+      "status": "fail",
+      "evidence": [
+        "no fast gate target (for example check-fast)"
+      ]
+    },
+    {
+      "id": "full-gate",
+      "area": "loops",
+      "level": 2,
+      "status": "fail",
+      "evidence": [
+        "no full gate target (for example check)"
+      ]
+    },
+    {
+      "id": "tests",
+      "area": "loops",
+      "level": 1,
+      "status": "pass",
+      "evidence": [
+        "68 test files"
+      ]
+    },
+    {
+      "id": "ci",
+      "area": "loops",
+      "level": 2,
+      "status": "pass",
+      "evidence": [
+        "CI calls 2 task runner targets (api:validate, api:generate)"
+      ]
+    },
+    {
+      "id": "hooks",
+      "area": "loops",
+      "level": 3,
+      "status": "fail",
+      "evidence": [
+        "no git hooks configuration"
+      ]
+    },
+    {
+      "id": "local-env",
+      "area": "environment",
+      "level": 1,
+      "status": "fail",
+      "evidence": [
+        "no compose file, devcontainer or dev target"
+      ]
+    },
+    {
+      "id": "env-example",
+      "area": "environment",
+      "level": 1,
+      "status": "fail",
+      "evidence": [
+        "no .env.example"
+      ]
+    },
+    {
+      "id": "toolchain-pinned",
+      "area": "environment",
+      "level": 1,
+      "status": "fail",
+      "evidence": [
+        "no runtime version file"
+      ]
+    },
+    {
+      "id": "deploy-explicit",
+      "area": "operations",
+      "level": 3,
+      "status": "partial",
+      "evidence": [
+        "deployment artifacts (docbook/Dockerfile) but no docs/deploy.md"
+      ]
+    },
+    {
+      "id": "observability",
+      "area": "operations",
+      "level": 3,
+      "status": "fail",
+      "evidence": [
+        "no docs/observability.md"
+      ]
+    },
+    {
+      "id": "skills",
+      "area": "capabilities",
+      "level": 2,
+      "status": "fail",
+      "evidence": [
+        "no skills in .agents/skills/ or .claude/skills/"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+uw-harness prove  /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo
+
+▸ Task
+  Make the two orphaned REST test classes run
+  tests/rest/RestIssueUpdateCategory.php and tests/rest/RestIssueUpdateVersion.php do not end in Test.php, so PHPUnit never discovers them and their category and version update tests never run, locally or in CI. Rename them (file and class) to the *Test.php convention, fix the implicitly nullable parameter in testUpdateIssueCategory1, and make them pass or report real failures.
+  - Done when: vendor/bin/phpunit --list-tests --testsuite rest lists the tests from both renamed classes
+  - Done when: `int $p_expected_id = null` becomes `?int $p_expected_id = null`, and php -l on PHP 8.5 prints no deprecation for this file
+  - Done when: make check passes, with a higher test count than 744, or a found product bug is reported with the test marked skipped and a reason
+  - Done when: docs/harness/log.md has a dated entry for the change
+  Agent: claude. It works alone on a new branch; you review the result.
+
+▸ Before
+  $ make setup
+  ✓ setup gate passed in 3s
+  $ make check-fast
+  ✗ fast gate failed (exit 2) after 10s
+  ! the fast gate already fails before the task; the result after the task is still measured
+
+▸ Work
+  Created branch uw-harness/prove-20261101-1859 from uw-harness/20261101-1844
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; ls tests/rest; grep -n "…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; git mv tests/rest/RestIs…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -rn "RestIssueUpdat…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -n "^dev\|^test\|^c…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; make dev > /tmp/mantis-d…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; sed -n 1,80p tests/rest/…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat /tmp/mantis-dev.log …
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -v "^\s*#\|^\s*$\|^…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -n "TESTSUITE\|GLOB…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; sed -n 80,240p tests/res…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; make dev > /tmp/mantis-d…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat .env 2>/dev/null | g…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -v -i "pass\|salt\|…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; ls -la --time-style=full…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -n "name\|container…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; make reset-db 2>&1 | tai…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; sed -n 200,220p tests/re…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; sed -i '' 's/^ public fu…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; sed -n 40,60p docs/harne…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; make check-fast > /tmp/c…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; cat >> docs/harness/log.…
+  · $ cd /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo; grep -n -i "403\|access …
+  · StructuredOutput
+  ✓ agent reports: done, 3 files changed
+
+▸ Verify
+  $ make check-fast
+  ✓ fast gate passed in 10s: 457 tests
+  $ make check
+  ✓ full gate passed in 66s: 772 tests
+
+▸ Report
+  Running the fast gate again on the files uw-harness wrote
+  $ make check-fast
+  ✓ fast gate passed in 11s: 457 tests
+  Agent status: done. Acceptance criteria met (reported by the agent): 4 of 4
+    ✓ vendor/bin/phpunit --list-tests --testsuite rest lists the tests from both renamed classes --list-tests --testsuite rest lists 18 RestIssueUpdateCategoryTest entries and 10 RestIssueUpdateVersionTest entries.
+    ✓ `int $p_expected_id = null` becomes `?int $p_expected_id = null`, and php -l on PHP 8.5 prints no deprecation for this file php -l tests/rest/RestIssueUpdateCategoryTest.php on PHP 8.5.3 prints only 'No syntax errors detected'.
+    ✓ make check passes, with a higher test count than 744, or a found product bug is reported with the test marked skipped and a reason make check exit 0: 'OK (772 tests, 2786 assertions)'. No test skipped. make check-fast exit 0: 'OK (457 tests, 751 assertions)'.
+    ✓ docs/harness/log.md has a dated entry for the change New section '## 2026-11-01: orphaned REST test classes now run' at the end of docs/harness/log.md.
+  ✓ Gates after the task. Tests before: 457 tests, 1 failed. After: 772 tests.
+  Fix rounds after a gate failed: 0. Questions for a human: 0.
+
+  Gaps in the harness reported by the agent
+  - build/local_install.sh: is_installed() checks only that config_inc.php and tests/bootstrap.php exist and that mantis_project_table has rows. It does not check that the API token in tests/bootstrap.php matches the database. Here the DB had been installed again (17:59 UTC) after the files were written (17:55 UTC). The token then resolved to the anonymous user, and every REST test (also the existing RestIssueTest) failed with 403 'User does not have access right to report issues'. make dev and make check do not detect this. The install could check the token with GET /api/rest/users/me.
+  - compose.yaml: The compose project name is fixed to 'mantisbt', so every copy or worktree of this repository on the same machine shares one MySQL container and database. A setup or reset in one copy breaks the token of another copy without any message. That is the most likely cause of the reset above, but I could not find which process did it.
+  - docs/local-dev.md: Common problems does not list 'REST/SOAP tests fail with 403 Access Denied / token resolves to anonymous' with 'make reset-db' as the fix. It covers only 'token CI_PHPUnit already exists'.
+  - AGENTS.md: It does not say how to run one REST test class: you need a server on :8080 (make dev in the background) and then vendor/bin/phpunit <file>. The table says rest needs make dev running, but not that make dev runs in the foreground and must be started in the background or in a second shell.
+  - docs/harness/log.md: It mentions the implicitly nullable parameter but not that the renamed class also had non-static data providers. Under PHPUnit 10 with failOnAllIssues these are deprecations that fail the run, so renaming the file and fixing ?int alone would have broken make check.
+
+  ✓ Done without human help.
+  Committed as c047eba04 on uw-harness/prove-20261101-1859. Review it like any pull request.
+  Done in 6m 18s. Agent transcripts: /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/repo/.git/uw-harness
+prove exit 0

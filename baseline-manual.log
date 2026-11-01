@@ -1,0 +1,41 @@
+Stack trace:
+#0 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/vendor/autoload.php(20): require_once()
+#1 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/core.php(110): require_once('/Users/victor/R...')
+#2 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/tests/TestConfig.php(87): require_once('/Users/victor/R...')
+#3 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/tests/Mantis/MantisCoreBase.php(34): require_mantis_core()
+#4 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/composer/ClassLoader.php(576): include('/Users/victor/R...')
+#5 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/composer/ClassLoader.php(427): {closure:Composer\Autoload\ClassLoader::initializeIncludeClosure():575}('/Users/victor/R...')
+#6 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/tests/Mantis/AntispamApiTest.php(35): Composer\Autoload\ClassLoader->loadClass('Mantis\\tests\\Ma...')
+#7 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Runner/TestSuiteLoader.php(115): require_once('/Users/victor/R...')
+#8 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Runner/TestSuiteLoader.php(48): PHPUnit\Runner\TestSuiteLoader->loadSuiteClassFile('/Users/victor/R...')
+#9 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Framework/TestSuite.php(251): PHPUnit\Runner\TestSuiteLoader->load('/Users/victor/R...')
+#10 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Framework/TestSuite.php(269): PHPUnit\Framework\TestSuite->addTestFile('/Users/victor/R...')
+#11 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Configuration/Xml/TestSuiteMapper.php(102): PHPUnit\Framework\TestSuite->addTestFiles(Array)
+#12 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Configuration/TestSuiteBuilder.php(75): PHPUnit\TextUI\XmlConfiguration\TestSuiteMapper->map('/Users/victor/R...', Object(PHPUnit\TextUI\Configuration\TestSuiteCollection), '', '')
+#13 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Application.php(394): PHPUnit\TextUI\Configuration\TestSuiteBuilder->build(Object(PHPUnit\TextUI\Configuration\Configuration))
+#14 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Application.php(114): PHPUnit\TextUI\Application->buildTestSuite(Object(PHPUnit\TextUI\Configuration\Configuration))
+#15 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/phpunit(104): PHPUnit\TextUI\Application->run(Array)
+#16 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/bin/phpunit(122): include('/Users/victor/R...')
+#17 {main}
+
+Fatal error: Cannot redeclare class ComposerAutoloaderInit58c47f2804ded0de0c3ea691b7e93b25 (previously declared in /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/composer/autoload_real.php:5) in /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/vendor/composer/autoload_real.php on line 5
+Stack trace:
+#0 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/vendor/autoload.php(20): require_once()
+#1 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/core.php(110): require_once('/Users/victor/R...')
+#2 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/tests/TestConfig.php(87): require_once('/Users/victor/R...')
+#3 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/control/eval-tree/tests/Mantis/MantisCoreBase.php(34): require_mantis_core()
+#4 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/composer/ClassLoader.php(576): include('/Users/victor/R...')
+#5 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/composer/ClassLoader.php(427): {closure:Composer\Autoload\ClassLoader::initializeIncludeClosure():575}('/Users/victor/R...')
+#6 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/tests/Mantis/AntispamApiTest.php(35): Composer\Autoload\ClassLoader->loadClass('Mantis\\tests\\Ma...')
+#7 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Runner/TestSuiteLoader.php(115): require_once('/Users/victor/R...')
+#8 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Runner/TestSuiteLoader.php(48): PHPUnit\Runner\TestSuiteLoader->loadSuiteClassFile('/Users/victor/R...')
+#9 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Framework/TestSuite.php(251): PHPUnit\Runner\TestSuiteLoader->load('/Users/victor/R...')
+#10 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/Framework/TestSuite.php(269): PHPUnit\Framework\TestSuite->addTestFile('/Users/victor/R...')
+#11 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Configuration/Xml/TestSuiteMapper.php(102): PHPUnit\Framework\TestSuite->addTestFiles(Array)
+#12 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Configuration/TestSuiteBuilder.php(75): PHPUnit\TextUI\XmlConfiguration\TestSuiteMapper->map('/Users/victor/R...', Object(PHPUnit\TextUI\Configuration\TestSuiteCollection), '', '')
+#13 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Application.php(394): PHPUnit\TextUI\Configuration\TestSuiteBuilder->build(Object(PHPUnit\TextUI\Configuration\Configuration))
+#14 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/src/TextUI/Application.php(114): PHPUnit\TextUI\Application->buildTestSuite(Object(PHPUnit\TextUI\Configuration\Configuration))
+#15 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/phpunit/phpunit/phpunit(104): PHPUnit\TextUI\Application->run(Array)
+#16 /Users/victor/Repos/unwritten/uw-harness-cases/mantisbt/own-tree/vendor/bin/phpunit(122): include('/Users/victor/R...')
+#17 {main}
+exit 255 seconds 1
