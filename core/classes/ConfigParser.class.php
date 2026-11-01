@@ -69,6 +69,7 @@ class ConfigParser
 	public function parse( $p_extra_tokens = self::EXTRA_TOKENS_ERROR ) {
 		switch( $this->tokens->type() ) {
 			case T_ARRAY:
+			case '[':
 				$t_result = $this->process_array();
 				break;
 
@@ -109,7 +110,17 @@ class ConfigParser
 	}
 
 	/**
+	 * Return true if the next token starts an array declaration,
+	 * either long syntax "array(" or short syntax "[".
+	 * @return bool
+	 */
+	protected function is_array_start() {
+		return $this->tokens->matches( T_ARRAY ) || $this->tokens->matches( '[' );
+	}
+
+	/**
 	 * Recursively process array declarations.
+	 * Supports both long array( ... ) and short [ ... ] syntax.
 	 * @return array
 	 * @throws Exception when there's an invalid token
 	 */
@@ -117,11 +128,17 @@ class ConfigParser
 		$t_array = array();
 		$t_count = 0;
 
-		$this->tokens->ensure_matches( T_ARRAY );
-		$this->tokens->ensure_matches( '(' );
+		if( $this->tokens->matches( '[' ) ) {
+			$this->tokens->pop();
+			$t_close = ']';
+		} else {
+			$this->tokens->ensure_matches( T_ARRAY );
+			$this->tokens->ensure_matches( '(' );
+			$t_close = ')';
+		}
 
 		# Loop until we reach the end of the array
-		while( !$this->tokens->matches( ')' ) ) {
+		while( !$this->tokens->matches( $t_close ) ) {
 			# A comma is required before each element except the first one
 			if ($t_count > 0) {
 				$this->tokens->ensure_matches(',');
@@ -130,6 +147,7 @@ class ConfigParser
 			switch( $this->tokens->type() ) {
 				# Nested array
 				case T_ARRAY:
+				case '[':
 					$t_array[] = $this->process_array();
 					break;
 
@@ -145,7 +163,7 @@ class ConfigParser
 					if( $this->tokens->matches( T_DOUBLE_ARROW ) ) {
 						# key => value
 						$this->tokens->pop();
-						if( $this->tokens->matches( T_ARRAY ) ) {
+						if( $this->is_array_start() ) {
 							$t_array[$t_str] = $this->process_array();
 						} else {
 							$t_array[$t_str] = $this->process_value();
@@ -156,7 +174,7 @@ class ConfigParser
 					}
 					break;
 
-				case ')':
+				case $t_close:
 					# Cover the trailing ',' case
 					break;
 
@@ -166,7 +184,7 @@ class ConfigParser
 
 			$t_count++;
 		}
-		$this->tokens->ensure_matches( ')' );
+		$this->tokens->ensure_matches( $t_close );
 
 		return $t_array;
 	}

@@ -10,8 +10,8 @@ Harness coverage went from 27 to 92 out of 100, level 0 to 2 (self-checking). Th
 
 | Gate | Command | Result | Tests |
 | --- | --- | --- | --- |
-| fast | `composer run check-fast` | pass | 22 tests |
-| full | `composer run check` | pass | 766 tests |
+| fast | `composer run check-fast` | pass | 27 tests |
+| full | `composer run check` | pass | 771 tests |
 
 Before the harness, the project's tests could not be measured: `vendor/bin/phpunit` ran no test (exit 127). This says nothing about whether the tests pass, and the gates could not be compared with a starting point.
 
@@ -52,6 +52,24 @@ ConfigParser (core/classes/ConfigParser.class.php), used by adm_config_report.ph
 
 Run it with `npx uw-harness prove`: an agent does the task with the harness, on its own branch, and the result is added to this page.
 
+## Pilot result: Support short array syntax in ConfigParser
+
+Run by claude on 2026-11-01, on branch `uw-harness/prove-20261101-2007`, in 5 minutes.
+
+- Agent status: **done**. Acceptance criteria met, as reported by the agent: 3 of 3.
+- Gates after the task: pass. Tests before: 766 tests. After: 771 tests.
+- Fix rounds after a gate failed: 0. Questions only a human could answer: 0.
+- Unattended (done, gates pass, every requested criterion met, no question for a human): **yes**.
+  - met: ConfigParser::parse() returns array( NEW_ => REPORTER ) for "[ NEW_ => REPORTER ]" and array( 'a' => array( 1, 2 ) ) for "[ 'a' => [ 1, 2 ] ]". testShortArraySyntaxWithConstantKeys and testNestedShortArrays pass (assertSame) in vendor/bin/phpunit -c phpunit.unit.xml --filter ConfigParserUnitTest: OK (14 tests, 21 assertions).
+  - met: New tests for these cases and for an unclosed '[' (must throw an Exception) are added to tests/Unit/ConfigParserUnitTest.php. Added testShortArraySyntaxWithConstantKeys, testNestedShortArrays, testShortArraysMixedWithLongArrays, testUnclosedShortArrayIsRejected (expectException on '[ 1, 2'), testMismatchedShortArrayBracketsAreRejected.
+  - met: composer run check-fast passes, and tests/Mantis/ConfigParserTest.php still passes in composer run check. composer run check-fast: OK (27 tests, 71 assertions). composer run check: exit 0, OK (744 tests, 2550 assertions). vendor/bin/phpunit --filter ConfigParserTest afterwards: OK (56 tests, 111 assertions).
+
+Gaps in the harness that the agent reported:
+
+- `.agents/skills/implement-change/SKILL.md`: Step 1 says to find the mantisbt.org issue first, and step 9 says to commit. Agents in this setup cannot commit or reach the external tracker, and the task did not give an issue number. The skill should say what to do when no issue number is given (for example, leave 'Fixes #NNNN' for the human).
+- `AGENTS.md`: The 'Verify a change' section does not say whether a change in core/classes (pure parsing logic used by an admin page) needs the full gate. I ran it because the acceptance criteria asked for it, but by the AGENTS.md rules alone it was unclear.
+- `AGENTS.md`: It does not say how much output composer run check prints or how long it takes (about 1 minute). A short note on that, and on sending the output to a log file, would help agents with limited context.
+
 ## What this does not prove
 
-It does not prove that agents can work on this repository without supervision. It proves that the knowledge is written down and that the gates run and run tests. No pilot task has been run yet. One task is one data point. Review the branch, answer the open questions, and judge the result yourself.
+It does not prove that agents can work on this repository without supervision. It proves that the knowledge is written down and that the gates run and run tests. One real task went through without help from a human, as reported above. One task is one data point. Review the branch, answer the open questions, and judge the result yourself.

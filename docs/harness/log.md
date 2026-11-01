@@ -110,3 +110,23 @@ Risks seen before the harness:
 - ci: npx -y uw-harness verify returned 404 from the npm registry on 2026-11-01 (package not published). The new harness.yml workflow will fail until uw-harness is published; it was not run on GitHub. Locally the check was run with the uw-harness source checkout and passed.
 - local-env: PostgreSQL support (DB_TYPE=pgsql, compose profile pgsql) was written but not run. Only MySQL was verified. The full gate drops and reinstalls the local database each time, and needs host port 3306 free because the mysqli driver ignores other ports.
 - full-gate: The full gate does not build the DocBook guides or the SOAP WSDL HTML (documentation.yml needs Publican and xsltproc, not available as composer/npm dependencies). Everything else from CI (lint, api:validate, api:generate, all four PHPUnit suites) is in composer run check.
+
+## 2026-11-01: short array syntax in ConfigParser
+
+- Changed: `core/classes/ConfigParser.class.php` now accepts `[ ... ]` arrays, nested and mixed with `array( ... )`, as top-level values and as values after `=>`. The closing token (`)` or `]`) is chosen when the array opens, so `[ 1 )` is rejected. No eval().
+- Tests: five new cases in `tests/Unit/ConfigParserUnitTest.php` (short syntax, nested, mixed, unclosed `[`, mismatched brackets). Fast gate: 27 tests pass. Full gate: 744 tests pass, including `tests/Mantis/ConfigParserTest.php` (56 tests).
+- Learned: an unclosed `[` is already rejected by `Tokenizer` (`token_get_all` with `TOKEN_PARSE`), before ConfigParser runs. `tests/Mantis/ConfigParserTest.php` contains no short array cases, so the unit suite is the only coverage for the new syntax.
+- Left: nothing for this task. The parser still rejects other valid PHP (for example arrays as keys, or expressions), as before.
+
+## 2026-11-01: pilot task done with the harness by claude
+
+**Task:** Support short array syntax in ConfigParser. ConfigParser (core/classes/ConfigParser.class.php), used by adm_config_report.php to parse configuration values, only accepts array( ... ): the input "[ NEW_ => REPORTER ]" throws 'Unexpected token "["', although it is valid PHP. Add support for [ ... ] arrays, including nested ones and mixed with array( ... ), without using eval().
+
+ConfigParser now parses short array syntax [ ... ], including nested short arrays and short arrays mixed with array( ... ), without eval(). process_array() picks the closing token (')' or ']') when the array opens, so mismatched brackets are rejected; a small is_array_start() helper is used for values after '=>'. Five new unit tests cover the acceptance cases, a mixed case, an unclosed '[' and mismatched brackets. The fast gate (27 tests) and the full gate (744 tests, including tests/Mantis/ConfigParserTest.php) both pass.
+
+- Status reported by the agent: done. Acceptance criteria met: 3 of 3.
+- Gates after the task: pass. Tests before: 766 tests. After: 771 tests.
+- Fix rounds after a gate failed: 0. Questions for a human: 0. Unattended: yes.
+- Harness gap: `.agents/skills/implement-change/SKILL.md`: Step 1 says to find the mantisbt.org issue first, and step 9 says to commit. Agents in this setup cannot commit or reach the external tracker, and the task did not give an issue number. The skill should say what to do when no issue number is given (for example, leave 'Fixes #NNNN' for the human).
+- Harness gap: `AGENTS.md`: The 'Verify a change' section does not say whether a change in core/classes (pure parsing logic used by an admin page) needs the full gate. I ran it because the acceptance criteria asked for it, but by the AGENTS.md rules alone it was unclear.
+- Harness gap: `AGENTS.md`: It does not say how much output composer run check prints or how long it takes (about 1 minute). A short note on that, and on sending the output to a log file, would help agents with limited context.

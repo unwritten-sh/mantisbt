@@ -2,7 +2,7 @@
   "tool_version": "0.3.0",
   "spec_version": 4,
   "agent": "claude",
-  "updated_at": "2026-11-01T19:06:07.890Z",
+  "updated_at": "2026-11-01T19:11:33.616Z",
   "score": {
     "before": 27,
     "after": 92
@@ -28,10 +28,10 @@
     "fast": {
       "command": "composer run check-fast",
       "ok": true,
-      "at": "2026-11-01T19:06:07.890Z",
-      "commit": "2f80baa3e",
+      "at": "2026-11-01T19:11:33.670Z",
+      "commit": "1213de4e1",
       "tests": {
-        "ran": 22,
+        "ran": 27,
         "skipped": 0,
         "failed": 0
       },
@@ -40,10 +40,10 @@
     "full": {
       "command": "composer run check",
       "ok": true,
-      "at": "2026-11-01T19:06:07.890Z",
-      "commit": "2f80baa3e",
+      "at": "2026-11-01T19:11:33.670Z",
+      "commit": "1213de4e1",
       "tests": {
-        "ran": 766,
+        "ran": 771,
         "skipped": 0,
         "failed": 0
       },
@@ -135,7 +135,71 @@
     "tests": null,
     "note": "ran no test (exit 127)"
   },
-  "proofs": [],
+  "proofs": [
+    {
+      "at": "2026-11-01T19:11:33.616Z",
+      "agent": "claude",
+      "task": {
+        "title": "Support short array syntax in ConfigParser",
+        "description": "ConfigParser (core/classes/ConfigParser.class.php), used by adm_config_report.php to parse configuration values, only accepts array( ... ): the input \"[ NEW_ => REPORTER ]\" throws 'Unexpected token \"[\"', although it is valid PHP. Add support for [ ... ] arrays, including nested ones and mixed with array( ... ), without using eval().",
+        "acceptance": [
+          "ConfigParser::parse() returns array( NEW_ => REPORTER ) for the input \"[ NEW_ => REPORTER ]\" and array( 'a' => array( 1, 2 ) ) for \"[ 'a' => [ 1, 2 ] ]\".",
+          "New tests for these cases and for an unclosed '[' (which must throw an Exception) are added to tests/Unit/ConfigParserUnitTest.php.",
+          "composer run check-fast passes, and tests/Mantis/ConfigParserTest.php still passes in composer run check."
+        ]
+      },
+      "branch": "uw-harness/prove-20261101-2007",
+      "status": "done",
+      "acceptance": [
+        {
+          "criterion": "ConfigParser::parse() returns array( NEW_ => REPORTER ) for \"[ NEW_ => REPORTER ]\" and array( 'a' => array( 1, 2 ) ) for \"[ 'a' => [ 1, 2 ] ]\"",
+          "met": true,
+          "evidence": "testShortArraySyntaxWithConstantKeys and testNestedShortArrays pass (assertSame) in vendor/bin/phpunit -c phpunit.unit.xml --filter ConfigParserUnitTest: OK (14 tests, 21 assertions)."
+        },
+        {
+          "criterion": "New tests for these cases and for an unclosed '[' (must throw an Exception) are added to tests/Unit/ConfigParserUnitTest.php",
+          "met": true,
+          "evidence": "Added testShortArraySyntaxWithConstantKeys, testNestedShortArrays, testShortArraysMixedWithLongArrays, testUnclosedShortArrayIsRejected (expectException on '[ 1, 2'), testMismatchedShortArrayBracketsAreRejected."
+        },
+        {
+          "criterion": "composer run check-fast passes, and tests/Mantis/ConfigParserTest.php still passes in composer run check",
+          "met": true,
+          "evidence": "composer run check-fast: OK (27 tests, 71 assertions). composer run check: exit 0, OK (744 tests, 2550 assertions). vendor/bin/phpunit --filter ConfigParserTest afterwards: OK (56 tests, 111 assertions)."
+        }
+      ],
+      "fix_rounds": 0,
+      "before": {
+        "ran": 766,
+        "skipped": 0,
+        "failed": 0
+      },
+      "after": {
+        "ran": 771,
+        "skipped": 0,
+        "failed": 0
+      },
+      "gates_ok": true,
+      "human_needed": [],
+      "harness_gaps": [
+        {
+          "file": ".agents/skills/implement-change/SKILL.md",
+          "problem": "Step 1 says to find the mantisbt.org issue first, and step 9 says to commit. Agents in this setup cannot commit or reach the external tracker, and the task did not give an issue number. The skill should say what to do when no issue number is given (for example, leave 'Fixes #NNNN' for the human)."
+        },
+        {
+          "file": "AGENTS.md",
+          "problem": "The 'Verify a change' section does not say whether a change in core/classes (pure parsing logic used by an admin page) needs the full gate. I ran it because the acceptance criteria asked for it, but by the AGENTS.md rules alone it was unclear."
+        },
+        {
+          "file": "AGENTS.md",
+          "problem": "It does not say how much output composer run check prints or how long it takes (about 1 minute). A short note on that, and on sending the output to a log file, would help agents with limited context."
+        }
+      ],
+      "skipped_test_files": [],
+      "failed_before": [],
+      "relaxed_checks": [],
+      "duration_s": 319
+    }
+  ],
   "last_run": {
     "skipped_test_files": [],
     "relaxed_checks": [

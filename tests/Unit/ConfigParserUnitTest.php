@@ -66,6 +66,37 @@ class ConfigParserUnitTest extends TestCase {
 		$this->assertSame( array( 'a' => array( 1, 2 ), 'b' => 'c' ), $t_parser->parse() );
 	}
 
+	public function testShortArraySyntaxWithConstantKeys() {
+		$t_parser = new ConfigParser( '[ NEW_ => REPORTER ]' );
+		$this->assertSame( array( NEW_ => REPORTER ), $t_parser->parse() );
+	}
+
+	public function testNestedShortArrays() {
+		$t_parser = new ConfigParser( "[ 'a' => [ 1, 2 ] ]" );
+		$this->assertSame( array( 'a' => array( 1, 2 ) ), $t_parser->parse() );
+	}
+
+	public function testShortArraysMixedWithLongArrays() {
+		$t_parser = new ConfigParser( "[ 'a' => array( 1, [ 2, 3 ] ), [ 'b' ], 'c' => [], ]" );
+		$this->assertSame(
+			array( 'a' => array( 1, array( 2, 3 ) ), array( 'b' ), 'c' => array() ),
+			$t_parser->parse()
+		);
+
+		$t_parser = new ConfigParser( "array( 'x' => [ 'y' => array( 4 ) ] )" );
+		$this->assertSame( array( 'x' => array( 'y' => array( 4 ) ) ), $t_parser->parse() );
+	}
+
+	public function testUnclosedShortArrayIsRejected() {
+		$this->expectException( Exception::class );
+		( new ConfigParser( '[ 1, 2' ) )->parse();
+	}
+
+	public function testMismatchedShortArrayBracketsAreRejected() {
+		$this->expectException( Exception::class );
+		( new ConfigParser( '[ 1, 2 )' ) )->parse();
+	}
+
 	public function testExtraTokensThrowByDefault() {
 		$this->expectException( Exception::class );
 		( new ConfigParser( '1 + 2' ) )->parse();
