@@ -1,0 +1,5 @@
+#!/bin/sh
+# MantisBT harness pre-push hook: run the fast gate (lint + unit tests).
+# Installed by `composer run setup` (git config core.hooksPath .githooks).
+# It needs no database and no network.
+exec composer run check-fast

@@ -57,6 +57,10 @@ composer.phar
 
 # PHPUnit
 .phpunit.result.cache
+.phpunit.cache/
+
+# Local environment settings (see .env.example)
+.env
 
 
 # Settings below are for convenience when switching branches on Dev machines

@@ -44,5 +44,44 @@
         "platform": {
             "php": "8.1.34"
         }
+    },
+    "scripts": {
+        "setup": [
+            "@composer install --no-interaction",
+            "npm ci",
+            "git config core.hooksPath .githooks || echo 'Could not set core.hooksPath; run: git config core.hooksPath .githooks'"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "build/local_instance.sh serve"
+        ],
+        "lint": [
+            "build/lint_php.sh",
+            "REDOCLY_TELEMETRY=off npm run api:validate"
+        ],
+        "test": "vendor/bin/phpunit -c phpunit.unit.xml",
+        "test-integration": [
+            "Composer\\Config::disableProcessTimeout",
+            "build/local_instance.sh test"
+        ],
+        "check-fast": [
+            "@lint",
+            "@test"
+        ],
+        "check": [
+            "Composer\\Config::disableProcessTimeout",
+            "@check-fast",
+            "npm run api:generate -- --output \"$(mktemp -d)/rest-api-generated\"",
+            "@test-integration"
+        ]
+    },
+    "scripts-descriptions": {
+        "setup": "Install Composer and npm dependencies and the git hooks",
+        "dev": "Start the database, install MantisBT if needed and serve it on http://127.0.0.1:8989/",
+        "lint": "PHP syntax check of tracked files and OpenAPI lint",
+        "test": "Database-free unit tests (tests/Unit, phpunit.unit.xml)",
+        "test-integration": "Reinstall the local instance and run all phpunit.xml suites (needs Docker)",
+        "check-fast": "Fast gate: lint and unit tests, no database or network",
+        "check": "Full gate: fast gate, REST API generation and integration tests (needs Docker)"
     }
 }

@@ -1,0 +1,181 @@
+{
+  "tool_version": "0.3.0",
+  "spec_version": 4,
+  "agent": "claude",
+  "updated_at": "2026-11-01T19:06:07.890Z",
+  "score": {
+    "before": 27,
+    "after": 92
+  },
+  "level": {
+    "before": 0,
+    "after": 2
+  },
+  "gates": {
+    "setup": "composer run setup",
+    "fast": "composer run check-fast",
+    "full": "composer run check"
+  },
+  "verified": {
+    "setup": {
+      "command": "composer run setup",
+      "ok": true,
+      "at": "2026-11-01T19:06:07.890Z",
+      "commit": "2f80baa3e",
+      "tests": null,
+      "fingerprint": "ff426a4db75bb53a"
+    },
+    "fast": {
+      "command": "composer run check-fast",
+      "ok": true,
+      "at": "2026-11-01T19:06:07.890Z",
+      "commit": "2f80baa3e",
+      "tests": {
+        "ran": 22,
+        "skipped": 0,
+        "failed": 0
+      },
+      "fingerprint": "ff426a4db75bb53a"
+    },
+    "full": {
+      "command": "composer run check",
+      "ok": true,
+      "at": "2026-11-01T19:06:07.890Z",
+      "commit": "2f80baa3e",
+      "tests": {
+        "ran": 766,
+        "skipped": 0,
+        "failed": 0
+      },
+      "fingerprint": "ff426a4db75bb53a"
+    }
+  },
+  "answers": [],
+  "todos": [
+    {
+      "requirement": "deploy-explicit",
+      "question": "Is the project's own tracker at https://mantisbt.org/bugs deployed from this repository? If so, how is it upgraded, by whom, and on which branch?",
+      "file": "docs/deploy.md"
+    },
+    {
+      "requirement": "deploy-explicit",
+      "question": "Who can tag and sign a MantisBT release (which gpg key, see KEYS.md), and where are the release tarballs published (SourceForge, GitHub releases, mantisbt.org)?",
+      "file": "docs/deploy.md"
+    },
+    {
+      "requirement": "observability",
+      "question": "For any instance the team operates (for example https://mantisbt.org/bugs), where are the PHP error logs and MantisBT logs stored, who can read them, and is there any alerting or uptime monitoring?",
+      "file": "docs/observability.md"
+    },
+    {
+      "requirement": "agreements",
+      "question": "What is the team's definition of done for a pull request beyond CONTRIBUTING.md: how many reviewers, who merges, and rebase or merge commit?",
+      "file": "CONTRIBUTING.md"
+    },
+    {
+      "requirement": "ci",
+      "question": "May .github/workflows/mantisbt.yml call composer run check directly, or must the PHP x database matrix stay as it is? For now the harness adds a separate workflow, .github/workflows/harness.yml.",
+      "file": "CONTRIBUTING.md"
+    },
+    {
+      "requirement": "local-env",
+      "question": "Which database should be the default for local development and the harness gates: MySQL/MariaDB or PostgreSQL?",
+      "file": "docs/local-dev.md"
+    },
+    {
+      "requirement": "fast-gate",
+      "question": "Is a database-free unit suite (tests/Unit) the right fast gate for the pre-push hook, or should the fast gate also run --testsuite mantis against the Docker database?",
+      "file": "docs/local-dev.md"
+    }
+  ],
+  "first_task": {
+    "title": "Support short array syntax in ConfigParser",
+    "description": "ConfigParser (core/classes/ConfigParser.class.php), used by adm_config_report.php to parse configuration values, only accepts array( ... ): the input \"[ NEW_ => REPORTER ]\" throws 'Unexpected token \"[\"', although it is valid PHP. Add support for [ ... ] arrays, including nested ones and mixed with array( ... ), without using eval().",
+    "acceptance": [
+      "ConfigParser::parse() returns array( NEW_ => REPORTER ) for the input \"[ NEW_ => REPORTER ]\" and array( 'a' => array( 1, 2 ) ) for \"[ 'a' => [ 1, 2 ] ]\".",
+      "New tests for these cases and for an unclosed '[' (which must throw an Exception) are added to tests/Unit/ConfigParserUnitTest.php.",
+      "composer run check-fast passes, and tests/Mantis/ConfigParserTest.php still passes in composer run check."
+    ]
+  },
+  "files": [
+    ".agents/skills/add-language-string/SKILL.md",
+    ".agents/skills/debug-local/SKILL.md",
+    ".agents/skills/implement-change/SKILL.md",
+    ".agents/skills/rest-api-change/SKILL.md",
+    ".env.example",
+    ".githooks/pre-push",
+    ".github/workflows/harness.yml",
+    ".gitignore",
+    ".nvmrc",
+    ".tool-versions",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "build/lint_php.sh",
+    "build/local_instance.sh",
+    "compose.yaml",
+    "composer.json",
+    "docs/architecture.md",
+    "docs/decisions/0001-record-architecture-decisions.md",
+    "docs/decisions/0002-commands-shared-by-ui-and-rest.md",
+    "docs/deploy.md",
+    "docs/harness/log.md",
+    "docs/local-dev.md",
+    "docs/observability.md",
+    "docs/product.md",
+    "package.json",
+    "phpunit.unit.xml",
+    "tests/Unit/ConfigDefaultsUnitTest.php",
+    "tests/Unit/ConfigParserUnitTest.php",
+    "tests/Unit/MantisEnumUnitTest.php"
+  ],
+  "baseline": {
+    "command": "vendor/bin/phpunit",
+    "ok": false,
+    "tests": null,
+    "note": "ran no test (exit 127)"
+  },
+  "proofs": [],
+  "last_run": {
+    "skipped_test_files": [],
+    "relaxed_checks": [
+      {
+        "file": ".github/workflows/harness.yml",
+        "line": "if: \"!contains(github.event.head_commit.message, '[skip ci]')\""
+      }
+    ],
+    "review_commit": [],
+    "secrets_added": [],
+    "secrets_in_repo": [
+      {
+        "file": "lang/strings_portuguese_standard.txt",
+        "kind": "password or secret"
+      }
+    ],
+    "trivial_test_files": [],
+    "coverage_problems": [],
+    "clean_checkout_problems": [],
+    "blocked": [
+      {
+        "requirement": "skills",
+        "reason": "The sandbox did not allow creating .claude/, so the .claude/skills -> ../.agents/skills symlink was not created. The skills are in .agents/skills/; the CLI must create the link."
+      },
+      {
+        "requirement": "env-example",
+        "reason": "uw-harness detect flags lang/strings_portuguese_standard.txt as holding secret-looking values. They are UI labels (for example $s_password = 'Palavra-chave'), not secrets. The file is managed by translatewiki.net and was not changed, so env-example stays partial."
+      },
+      {
+        "requirement": "ci",
+        "reason": "npx -y uw-harness verify returned 404 from the npm registry on 2026-11-01 (package not published). The new harness.yml workflow will fail until uw-harness is published; it was not run on GitHub. Locally the check was run with the uw-harness source checkout and passed."
+      },
+      {
+        "requirement": "local-env",
+        "reason": "PostgreSQL support (DB_TYPE=pgsql, compose profile pgsql) was written but not run. Only MySQL was verified. The full gate drops and reinstalls the local database each time, and needs host port 3306 free because the mysqli driver ignores other ports."
+      },
+      {
+        "requirement": "full-gate",
+        "reason": "The full gate does not build the DocBook guides or the SOAP WSDL HTML (documentation.yml needs Publican and xsltproc, not available as composer/npm dependencies). Everything else from CI (lint, api:validate, api:generate, all four PHPUnit suites) is in composer run check."
+      }
+    ]
+  }
+}

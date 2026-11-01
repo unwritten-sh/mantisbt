@@ -1,0 +1,45 @@
+# -----------------------------------------------------------------------------
+# MantisBT GitHub Actions Workflow to verify the agent harness
+#
+# Runs `uw-harness verify` on every pull request: it checks that AGENTS.md
+# matches the repository, then runs the setup, fast and full gates
+# (composer run setup / check-fast / check). The full gate starts MySQL with
+# compose.yaml and runs all PHPUnit suites against a fresh install.
+#
+# The PHP x database matrix stays in mantisbt.yml.
+# -----------------------------------------------------------------------------
+
+name: MantisBT harness gates
+on:
+  pull_request:
+
+concurrency:
+  group: harness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  Verify:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    env:
+      PORT: 8080
+
+    steps:
+    - name: Checkout MantisBT Repository
+      uses: actions/checkout@v7
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: "8.1"
+        extensions: mysqli, pgsql, mbstring, json, tokenizer, curl, gd, fileinfo, ldap, soap, zlib, zip
+        ini-values: opcache.jit=disable
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+
+    - name: Verify harness gates
+      run: npx -y uw-harness verify

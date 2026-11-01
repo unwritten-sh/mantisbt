@@ -1,0 +1,49 @@
+# Local data stores for MantisBT development and the integration test gate.
+#
+# The application itself runs on the host with PHP's built-in web server
+# (see build/local_instance.sh and docs/local-dev.md).
+# Credentials match .github/workflows/mantisbt.yml: user root, password root,
+# database bugtracker. They are for local use only.
+#
+# MantisBT connects to MySQL on port 3306 (the mysqli driver default), so the
+# host port must stay 3306.
+
+name: mantisbt
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bugtracker
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  # Optional: start with DB_TYPE=pgsql (see .env.example).
+  pgsql:
+    image: postgres:16
+    profiles: ["pgsql"]
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: bugtracker
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgsql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "root", "-d", "bugtracker"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  mysql-data:
+  pgsql-data:
