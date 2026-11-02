@@ -1,0 +1,108 @@
+{
+  "task": "mantisbt-2",
+  "arm": "control",
+  "start": "31bf4db9aa9d2aa3c6d613089a5de8d4c3cf9cc0",
+  "seconds": 352,
+  "result": {
+    "status": "done",
+    "summary": "The category default handler now uses the same shape as other user references in the API. CategoryAddCommand and CategoryUpdateCommand accept `handler` as {\"id\": n} or {\"name\": \"...\"}. On update, `\"handler\": null` clears the handler, and leaving the key out keeps the current one. The parsing is in a new helper, category_resolve_handler() in core/category_api.php. A user that does not exist (by id or by name) gives 404. A handler that is not an object, or an object with neither id nor name, gives 400. The existing rules still apply: category_validate_assigned_to() still checks the user, and on update an unchanged handler is not checked again, even if it is now disabled or deleted. CategoryGetCommand returns the handler under `handler` instead of `default_handler`, and still leaves the key out when there is no handler or when the user has no manage project access. The old `assigned_to` payload key and the `default_handler` response key are removed, not kept as aliases. Callers are updated: SOAP mc_project_rename_category_by_name (0 means clear the handler), manage_proj_cat_update.php, manage_proj_cat_edit_page.php, manage_proj_edit_page.php and manage_proj_page.php. The HTML form field is still named assigned_to. The OpenAPI request schemas now describe `handler` (nullable on update), and the get operations explain the `handler` key in the response. To run the REST and SOAP suites I started a local PHP web server and created a temporary API token in the local DB, because the token in tests/bootstrap.php did not match the DB. I deleted the token and stopped the server when the tests were done. No commits were made.",
+    "changes": [
+      {
+        "path": "core/category_api.php",
+        "summary": "New category_resolve_handler(): turns a {id}/{name} reference (array or object) or null into a user id. An unknown name gives ERROR_USER_BY_NAME_NOT_FOUND (404). A bad shape gives ERROR_INVALID_FIELD_VALUE (400). The validation message now says 'handler'."
+      },
+      {
+        "path": "core/commands/CategoryAddCommand.php",
+        "summary": "Reads `handler` instead of `assigned_to`, resolves and validates it, then sets it on the new category."
+      },
+      {
+        "path": "core/commands/CategoryUpdateCommand.php",
+        "summary": "Reads `handler` with array_key_exists, so an explicit null clears the handler and a missing key keeps it. An unchanged handler is not validated again."
+      },
+      {
+        "path": "core/commands/CategoryGetCommand.php",
+        "summary": "The response key is now `handler` instead of `default_handler`. The visibility rules are unchanged."
+      },
+      {
+        "path": "api/soap/mc_project_api.php",
+        "summary": "mc_project_rename_category_by_name sends `handler` => ['id' => n], or null when assigned_to is 0."
+      },
+      {
+        "path": "manage_proj_cat_update.php",
+        "summary": "Builds the `handler` payload from the form's assigned_to field (0 means null)."
+      },
+      {
+        "path": "manage_proj_cat_edit_page.php",
+        "summary": "Reads `handler` from the CategoryGetCommand result."
+      },
+      {
+        "path": "manage_proj_edit_page.php",
+        "summary": "Reads `handler` from the category list."
+      },
+      {
+        "path": "manage_proj_page.php",
+        "summary": "Reads `handler` from the global category list."
+      },
+      {
+        "path": "api/rest/mantisbt_openapi.yaml",
+        "summary": "ProjectCategoriesAdd and ProjectCategoriesUpdate use `handler` (new CategoryHandlerRef schema; nullable object on update) instead of `assigned_to`. The get operations describe the `handler` response key."
+      },
+      {
+        "path": "tests/Mantis/CategoryCommandTest.php",
+        "summary": "Existing tests moved to `handler`. New tests: testHandlerField (add by id, keep, clear with null, set by name, get under `handler`), testAddHandlerByName, testHandlerNotFound (unknown id or name maps to 404, bad shape maps to 400)."
+      },
+      {
+        "path": "tests/rest/RestProjectCategoryTest.php",
+        "summary": "Replaced the assigned_to tests with tests for `handler`: CRUD by id, by name and with null; add by name; no key when there is no handler; key hidden for a viewer (impersonation); 404 for unknown id or name on add and update; 400 for a non-object handler."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "Categories can be created, updated and read with the `handler` field as described",
+        "met": true,
+        "evidence": "These tests pass against a running local instance: REST testProjectCategoryHandlerAndStatusFields, testProjectCategoryAddHandlerByName, testProjectCategoryHandlerHiddenWithoutManageAccess and testProjectCategoryHandlerMustExist, and command tests testHandlerField, testAddHandlerByName, testHandlerNotFound and testUpdateAllowsUnchangedInvalidHandler. They cover: create and update by id and by name, null clears, a missing key keeps the handler, 404 for an unknown user, an enabled user is required, an unchanged invalid handler does not block updates, and the key is left out when there is no handler or the user has only viewer access."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "3 new command tests and 3 new REST tests. Existing category tests updated to the new shape. Result: 8/8 CategoryCommandTest and 14/14 REST and SOAP category tests pass."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "vendor/bin/phpunit (all suites: mantis, soap, rest, formatting), run with a local php -S server on 127.0.0.1:8989: OK (748 tests, 2589 assertions). npm run api:validate: valid, with the same 3 warnings as before. npm run api:generate, written to a temp folder: Postman, Bruno and docs outputs build."
+      }
+    ],
+    "human_needed": [
+      {
+        "question": "Should the old `assigned_to` request key (and the `default_handler` response key) stay for a while as a deprecated alias, for existing REST clients?",
+        "why": "I removed both, as the issue asks for one standard shape. This breaks clients that use the old fields. Keeping an alias is a product and compatibility decision."
+      }
+    ],
+    "harness_used": [
+      ".claude/skills/implement-change/SKILL.md (workflow: test first, gates)",
+      ".claude/skills/rest-api-change/SKILL.md (where routes, commands, exceptions and OpenAPI live; npm run api:validate / api:generate)",
+      "phpunit.xml test suites and tests/bootstrap.php (REST/SOAP host and token)",
+      "tests/rest/RestImpersonateUserTest.php (pattern for testing as a low-access user)",
+      "core/error_api.php error_map_mantis_error_to_http_code (to check that the errors map to 404 and 400)"
+    ],
+    "harness_gaps": [
+      {
+        "file": "composer.json",
+        "problem": "The skills tell you to run `composer run setup`, `composer run check-fast` and `composer run check`, but composer.json in this tree has no scripts section, so none of these gates exist."
+      },
+      {
+        "file": ".claude/skills/implement-change/SKILL.md",
+        "problem": "It links to docs/product.md, docs/architecture.md, docs/decisions/0002-..., AGENTS.md, phpunit.unit.xml and docs/harness/log.md. None of these exist in this tree."
+      },
+      {
+        "file": "tests/bootstrap.php",
+        "problem": "The API token in this file does not match the CI_PHPUnit token in the local DB, so all REST tests ran as anonymous and got 403. Nothing documents how to fix this. I had to create a temporary token and point phpunit to a bootstrap file outside the repo."
+      },
+      {
+        "file": null,
+        "problem": "Nothing says how to start the web server that the REST and SOAP suites need (http://127.0.0.1:8989). I started `php -S 127.0.0.1:8989 -t .` by hand. The skill says the full gate starts it, but that gate does not exist here."
+      }
+    ]
+  }
+}

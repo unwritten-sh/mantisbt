@@ -1,0 +1,100 @@
+{
+  "task": "mantisbt-1",
+  "arm": "harness",
+  "start": "539c26cbdfa6d36773d26fa16c9f3fc89eaa922f",
+  "seconds": 568,
+  "result": {
+    "status": "done",
+    "summary": "All checks on one uploaded file are now in `file_ensure_uploaded( array $p_file )` in core/file_api.php. It runs the 9 checks in the order you gave, with your messages, and keeps the old error codes (ERROR_FILE_NO_UPLOAD_FAILURE, ERROR_FILE_TOO_BIG, ERROR_FILE_NAME_TOO_LONG, ERROR_FILE_NOT_ALLOWED, ERROR_UPLOAD_FAILURE). A file array without an `error` key passes.\n\nThese call it: `file_add()` (first thing it does), IssueAddCommand, IssueFileAddCommand and IssueNoteAddCommand (for each file, during validation, after the access and moderation checks, so a bad file stops the command before any issue, note or file is saved), and proj_doc_update.php. The XmlImportExport import page already called it. I removed the duplicated checks from `file_add()`, IssueAddCommand and proj_doc_update.php.\n\nOther changes, which you may want to look at:\n1. New helper `file_filter_not_selected()`. A web form with an empty file input sends an entry with an empty name and UPLOAD_ERR_NO_FILE. `file_attach_files()` always skipped these. The commands now remove them before the checks, so an empty input does not fail with 'File name is empty'.\n2. proj_doc_update.php used to skip a file silently when the upload failed (for example a file that was too big), and saved only the title. Now it runs the checks whenever a file was sent, and it still requires `is_uploaded_file()`. It now also checks the file type, which it did not do before.\n3. ERROR_FILE_NAME_TOO_LONG had no HTTP status, so REST returned 500 for it (before this change too). I mapped it to 400 in core/error_api.php.\n\n`composer run check-fast` passes. `composer run check` passes: 760 tests, 2674 assertions. Note that `composer run check` dropped and reinstalled the local test database.",
+    "changes": [
+      {
+        "path": "core/file_api.php",
+        "summary": "Rewrote file_ensure_uploaded() with the 9 ordered checks; file_add() calls it first and no longer has its own name length, type, antispam, empty file and size checks; added file_filter_not_selected()."
+      },
+      {
+        "path": "core/commands/IssueAddCommand.php",
+        "summary": "Replaced the inline name length check with file_filter_not_selected() and file_ensure_uploaded() for each file during validation."
+      },
+      {
+        "path": "core/commands/IssueFileAddCommand.php",
+        "summary": "Requires file_api.php, removes empty web inputs in parseFiles(), calls file_ensure_uploaded() for each file at the end of validate()."
+      },
+      {
+        "path": "core/commands/IssueNoteAddCommand.php",
+        "summary": "Requires file_api.php, removes empty web inputs in parseFiles(), calls file_ensure_uploaded() for each file after the access and moderation checks in validate()."
+      },
+      {
+        "path": "proj_doc_update.php",
+        "summary": "Removed the duplicated name length and size checks; web server upload errors are no longer skipped silently; is_uploaded_file() is still required."
+      },
+      {
+        "path": "core/error_api.php",
+        "summary": "ERROR_FILE_NAME_TOO_LONG now maps to HTTP 400 instead of 500."
+      },
+      {
+        "path": "tests/Mantis/FileEnsureUploadedTest.php",
+        "summary": "New tests: each check and its message and code, the order of the checks (antispam first, name, upload error before length, length before type, type before path), empty file, maximum size, a file without an error key, file_filter_not_selected(), IssueFileAddCommand and IssueNoteAddCommand stop before saving anything, file_add() runs the checks."
+      },
+      {
+        "path": "tests/rest/RestIssueTest.php",
+        "summary": "New tests: creating an issue with a file type that is not allowed, an empty file, an empty name or a name that is too long gives 400; a valid file is attached."
+      },
+      {
+        "path": "tests/rest/RestIssueNotesTest.php",
+        "summary": "New test: a note with a file type that is not allowed gives 400, and no note or file is added."
+      },
+      {
+        "path": "docs/harness/log.md",
+        "summary": "Log entry: what changed, what I learned, what is left (SOAP)."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "Every upload path uses this one function with the checks above",
+        "met": true,
+        "evidence": "file_add() calls file_ensure_uploaded() first, and file_attach_files(), proj_doc_add.php and the XML import go through file_add(). IssueAddCommand, IssueFileAddCommand and IssueNoteAddCommand call it for each file during validate(). proj_doc_update.php and XmlImportExport import_action.php call it directly. The duplicated checks were removed. One exception: SOAP mci_file_add() writes the content itself and does not use file_add(), so it keeps its own type and size checks (see human_needed)."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "tests/Mantis/FileEnsureUploadedTest.php covers every check, the messages, the error codes, the order of the checks and the three commands. New REST tests: RestIssueTest::testCreateIssueWithInvalidFiles, testCreateIssueWithFile and RestIssueNotesTest::testAddNoteWithInvalidAttachment. All pass in composer run check."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "composer run check-fast: lint, OpenAPI lint and 22 unit tests pass. composer run check: OK (760 tests, 2674 assertions), exit code 0."
+      }
+    ],
+    "human_needed": [
+      {
+        "question": "Should SOAP mci_file_add() (api/soap/mc_file_api.php) also call file_ensure_uploaded(), for example by writing the content to a temporary file first?",
+        "why": "It does not use file_add() and has its own type and size checks with different fault responses (403 and 400). Changing it would change the SOAP API behaviour, so I left it as it is."
+      },
+      {
+        "question": "Is it acceptable that an empty file input from a web form (empty name and UPLOAD_ERR_NO_FILE) is ignored and not reported as 'File name is empty'?",
+        "why": "The task says an empty name must fail. But web forms send such entries when no file is selected, and file_attach_files() always ignored them. Rejecting them would break issue reporting and note adding without attachments. A file with an empty name from the API is still rejected."
+      }
+    ],
+    "harness_used": [
+      "AGENTS.md/CLAUDE.md: conventions, the fast and full gates, the rule to add a log entry",
+      "implement-change skill: the order of steps and when to run the full gate",
+      "docs/local-dev.md: how the integration suites need the installed instance and web server",
+      "composer run check-fast and composer run check (build/local_instance.sh): reinstalled MySQL and ran all 760 tests",
+      "tests/core/MantisTestCase.php setConfig()/restoreConfig() and tests/rest/RestBase.php helpers"
+    ],
+    "harness_gaps": [
+      {
+        "file": "tests/Mantis/MantisCoreBase.php",
+        "problem": "There is no helper to log in as another user, or to build a command that needs the SOAP mci_* helpers (IssueAddCommand). That is why IssueAddCommand is tested through REST only."
+      },
+      {
+        "file": "docs/local-dev.md",
+        "problem": "It does not say that a REST response of 500 often means that an error code is missing in error_map_api_error_to_http_status(), or where the PHP built-in server log is (the gate prints the path in a temp folder)."
+      },
+      {
+        "file": null,
+        "problem": "No unit-level (no database) test is possible for file_api.php because it needs core.php, so the fast gate does not cover this change. Only the full gate does."
+      }
+    ]
+  }
+}

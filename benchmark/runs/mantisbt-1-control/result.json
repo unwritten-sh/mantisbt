@@ -1,0 +1,82 @@
+{
+  "task": "mantisbt-1",
+  "arm": "control",
+  "start": "f443410f2fc547ec12309e43737f1e6f5cfe8707",
+  "seconds": 437,
+  "result": {
+    "status": "done",
+    "summary": "All checks on one uploaded file are now in file_ensure_uploaded( array $p_file ) in core/file_api.php. They run in the requested order with the requested messages and the old error codes. The function is called by file_add(), by proj_doc_update.php, and during validation by IssueAddCommand, IssueFileAddCommand and IssueNoteAddCommand, for each file. The duplicated checks were removed from file_add(), IssueAddCommand and proj_doc_update.php. Every PHP upload error code is handled now: INI_SIZE and FORM_SIZE give 'too big', all other codes (including NO_TMP_DIR, CANT_WRITE, EXTENSION and unknown codes) give 'upload failure'. A file without an 'error' key is valid. A small helper, file_is_empty_upload_slot(), makes the commands skip the empty entry a browser sends when no file is chosen (empty name with UPLOAD_ERR_NO_FILE). file_attach_files() already skipped these entries, so the web forms still work without a file. I added tests/Mantis/FileEnsureUploadedTest.php with 24 tests. The full suite passes: 751 tests. There was no database on the machine, so I ran the suite against a temporary MySQL Docker container, set up the same way as the project CI, and removed it afterwards. Behaviour changes to know about: proj_doc_update.php now also checks the file type, the antispam limit and empty files, and it throws ClientException instead of calling trigger_error. The XmlImportExport plugin already called file_ensure_uploaded(), so its XML file is now also checked against allowed_files/disallowed_files and max_file_size. The SOAP mci_file_add() was not changed: it receives the file content, not an uploaded file, and has its own checks. antispam_check() now runs once during validation and once more in file_add(). It only reads data, so this has no side effect.",
+    "changes": [
+      {
+        "path": "core/file_api.php",
+        "summary": "Rewrote file_ensure_uploaded() with the 9 checks in the requested order (antispam, empty name, PHP upload error, name length, file type, empty tmp_name, readable, empty file, max size). It keeps the old error codes and uses file_get_max_file_size(). Added file_is_empty_upload_slot(). file_add() calls file_ensure_uploaded() first, and its duplicated name length, type, antispam, empty file and size checks were removed."
+      },
+      {
+        "path": "core/commands/IssueAddCommand.php",
+        "summary": "Replaced the name length check with a call to file_ensure_uploaded() for each file during validate(). Empty web form entries are skipped."
+      },
+      {
+        "path": "core/commands/IssueFileAddCommand.php",
+        "summary": "validate() now calls file_ensure_uploaded() for each file, so the command fails before any file is stored."
+      },
+      {
+        "path": "core/commands/IssueNoteAddCommand.php",
+        "summary": "validate() now calls file_ensure_uploaded() for each attached file, so the note is not created if a file is invalid."
+      },
+      {
+        "path": "proj_doc_update.php",
+        "summary": "Removed the duplicated name length and max size checks. file_ensure_uploaded() covers them, and it also adds the type, antispam and empty file checks."
+      },
+      {
+        "path": "tests/Mantis/FileEnsureUploadedTest.php",
+        "summary": "New test class with 24 tests: a valid file with and without the error key, each check with its message and code, the order of the checks (antispam first, name before upload error, upload error before length, length before type, type before path), all PHP upload error codes, the limit values, file_add() rejecting a file, and the three commands rejecting bad files during validation with nothing created. It also checks that empty form slots are ignored and that API files without an error key are accepted."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "Every upload path uses this one function with the checks above",
+        "met": true,
+        "evidence": "grep shows file_ensure_uploaded() called from file_add() (used by file_attach_files, proj_doc_add.php and the XML import), proj_doc_update.php, IssueAddCommand, IssueFileAddCommand, IssueNoteAddCommand and the XmlImportExport import_action.php. No duplicated length, type or size checks remain in these places. SOAP mci_file_add() works on raw content, not on an uploaded file array, so it was not changed."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "tests/Mantis/FileEnsureUploadedTest.php: 24 tests, 79 assertions, all pass. They cover each message and code, the order of the checks, all UPLOAD_ERR_* codes, a file without an error key, file_add(), and the three commands. I could not confirm that the tests fail on the old code: the git stash command was denied. But several tested messages do not exist in the old code (for example 'File name is empty' and 'path is empty'), so those tests cannot pass on it."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "vendor/bin/phpunit with all suites (mantis, soap, rest, formatting) against a temporary MySQL 8.0 container and php -S on 127.0.0.1:8989: OK (751 tests, 2613 assertions). The baseline before the new tests was 727 tests. The first run found a regression in file_add() ($t_file_size was still used later); I fixed it before the final run."
+      }
+    ],
+    "human_needed": [
+      {
+        "question": "Should the XmlImportExport import (import_action.php) be subject to the allowed_files/disallowed_files and max_file_size checks? It already called file_ensure_uploaded(), so it now gets all 9 checks.",
+        "why": "If an admin has an allowed_files list without 'xml', XML imports will now be rejected with 'type not allowed'."
+      },
+      {
+        "question": "Should the commands reject an empty file entry sent by a web form (empty name with UPLOAD_ERR_NO_FILE) instead of skipping it?",
+        "why": "The spec says an empty name gives 'File name is empty'. But the bug report and note forms can send such an entry when no file is chosen, and file_attach_files() always skipped it. I chose to skip only this exact case, to keep the web UI working."
+      }
+    ],
+    "harness_used": [
+      "phpunit.xml and tests/Mantis/* (MantisCoreBase, setConfig/restoreConfig helpers, IssueMoveCommandTest as an example of file arrays)",
+      "build/ci_install_mantis.sh, build/ci_post_install.sh and .github/workflows/mantisbt.yml, used to rebuild the test database (install.php, seed data, API token)",
+      "Existing ignored config/config_inc.php and tests/bootstrap.php"
+    ],
+    "harness_gaps": [
+      {
+        "file": null,
+        "problem": "No database was running. The whole suite, including the core 'mantis' suite, needs MySQL at 127.0.0.1 and a web server on :8989. I had to start a Docker MySQL container by hand, run the installer, seed it and create an API token. A script or docker-compose file for local tests would help."
+      },
+      {
+        "file": "tests/bootstrap.php",
+        "problem": "The API token is hard-coded and only matches the database it was created for. After rebuilding the database I had to put in a new token for the run and restore the file afterwards."
+      },
+      {
+        "file": null,
+        "problem": "There is no agent or contributor note (CLAUDE.md/AGENTS.md) that explains how to run the tests locally or which checks are global-only config (for example allow_signup cannot be set with config_set)."
+      }
+    ]
+  }
+}

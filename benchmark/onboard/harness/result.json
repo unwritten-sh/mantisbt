@@ -1,0 +1,18 @@
+{
+  "arm": "harness",
+  "seconds": 120,
+  "result": {
+    "status": "done",
+    "test_command": "composer run test && composer run test-integration",
+    "setup_steps": [
+      "Read AGENTS.md/CLAUDE.md, docs/local-dev.md, compose.yaml, .env.example and build/local_instance.sh",
+      "Checked the tools on this machine: PHP 8.5.3 from Homebrew (the repository pins 8.1.34, but every required extension is present, including mysqli, pgsql, soap and zip), Composer, Node and npm, Docker 29.4.0. Ports 3306 and 8989 were free.",
+      "composer run setup: composer install, npm ci, and git config core.hooksPath .githooks",
+      "composer run check-fast: PHP lint and OpenAPI lint passed (3 warnings only), and the 22 unit tests passed",
+      "composer run test-integration: started a MySQL 8.0 container with docker compose (mantisbt-mysql-1 on 127.0.0.1:3306), installed MantisBT through admin/install.php, ran build/ci_post_install.sh (which writes config/config_inc.php and tests/bootstrap.php, both gitignored), started a PHP web server on 127.0.0.1:8989 and ran phpunit.xml. 744 tests and 2550 assertions passed.",
+      "Left the MySQL container running. The test command starts and stops its own PHP web server and reinstalls the database on each run."
+    ],
+    "summary": "I set up the environment by following docs/local-dev.md: Composer and npm dependencies, plus a Docker MySQL 8.0 database. The unit suite passed 22 of 22 tests and the integration suite (mantis core, soap and rest) passed 744 of 744 tests, with no failures. I used the host's PHP 8.5.3 instead of the pinned 8.1.34, and no deprecation warning failed the tests. The test command needs Docker running. It drops and reinstalls the local 'bugtracker' database each time, and it starts its own web server on port 8989, so that port must be free. I did not change any code, tests or git history, and the working tree is clean.",
+    "human_needed": []
+  }
+}

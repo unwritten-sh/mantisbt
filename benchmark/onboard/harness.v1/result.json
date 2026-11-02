@@ -1,0 +1,24 @@
+{
+  "arm": "harness",
+  "seconds": 192,
+  "result": {
+    "status": "done",
+    "test_command": "composer run check",
+    "setup_steps": [
+      "Read AGENTS.md/CLAUDE.md, docs/local-dev.md, compose.yaml, .env.example and build/local_instance.sh",
+      "Checked the tools: Homebrew PHP 8.5.3 (all needed extensions present: mysqli, pgsql, mbstring, soap, gd, ldap, curl, zip...), Composer, Node v25.9.0, Docker running; ports 3306 and 8989 free",
+      "composer install --no-interaction (the dapphp/securimage dev-mantis package came from GitHub without problems)",
+      "npm ci (Redocly OpenAPI tooling)",
+      "Did not run 'git config core.hooksPath .githooks' from 'composer run setup', to leave the local git config unchanged (optional)",
+      "composer run check-fast: PHP lint + OpenAPI validate (3 warnings, valid) + 22 unit tests OK",
+      "composer run test-integration: started the mysql:8.0 container (compose project 'mantisbt', 127.0.0.1:3306), installed MantisBT through admin/install.php on a temporary PHP built-in server at 127.0.0.1:8989, ran build/ci_post_install.sh (writes gitignored config/config_inc.php and tests/bootstrap.php), then 744 PHPUnit tests (mantis, soap, rest suites) OK",
+      "composer run check (full CI-equivalent gate: check-fast + api:generate + integration): exit 0, 744 tests, 2550 assertions OK",
+      "Left the mantisbt-mysql-1 container running and healthy; git working tree is still clean"
+    ],
+    "summary": "The environment is set up and the whole test suite passes. 'composer run check' is the full gate that CI runs. It lints PHP, validates and generates the OpenAPI artifacts, runs the 22 database-free unit tests, then resets the Docker MySQL database, reinstalls MantisBT, starts the PHP web server itself (and stops it at the end), and runs the 744 integration tests (mantis, soap, rest). Result: all OK. To run it again, Docker must be running and host ports 3306 and 8989 must be free. The MySQL container is still running, and the script brings it up again if it is stopped. One difference from the repo: .tool-versions pins PHP 8.1.34, but this machine has PHP 8.5.3, and I used 8.5.3. Every test passed on it, even with failOnAllIssues on, so I did not install PHP 8.1. Node is v25 instead of 22, and the Redocly tooling works with it. I changed no product code or tests.",
+    "human_needed": [
+      "Must the local runs use PHP 8.1.34 exactly, as .tool-versions pins it? The suite passes on 8.5.3, but CI may see deprecations that 8.5 does not show, or the other way round.",
+      "Repo open question: should local development and the gates use MySQL (the default, the only one verified here) or PostgreSQL?"
+    ]
+  }
+}

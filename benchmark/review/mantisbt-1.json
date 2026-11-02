@@ -1,0 +1,23 @@
+{
+  "task": "mantisbt-1",
+  "A": "harness",
+  "B": "control",
+  "answer": {
+    "A": {
+      "scope": 4,
+      "conventions": 4,
+      "tests": 4,
+      "readability": 4,
+      "notes": "The core `file_ensure_uploaded()` matches the spec and is the same as B's. A also fixes `proj_doc_update.php`, which used to ignore upload errors from the web server because of the `is_uploaded_file` guard; the task explicitly asks for this. It adds a `file_filter_not_selected()` helper and filters `$this->files` once, so empty web form inputs are handled cleanly. It maps `ERROR_FILE_NAME_TOO_LONG` to HTTP 400, a small reasonable addition so the REST path returns a proper status code. Tests are broad: a data provider for every error case including ordering cases, a real spammer user for the antispam test, command tests, `file_add()` tests and REST tests. One weakness: the tests rely on `.svg` being disallowed by the default config instead of setting `disallowed_files`, which is fragile. The test file and REST tests are somewhat large."
+    },
+    "B": {
+      "scope": 4,
+      "conventions": 4,
+      "tests": 4,
+      "readability": 4,
+      "notes": "The core function is the same as A's and correct. The `file_is_empty_upload_slot()` predicate is clear, but the skip is repeated in each command. `proj_doc_update.php` keeps the `is_uploaded_file()` guard, so upload errors reported by the web server are still silently ignored there. That leaves part of the task undone. There is no HTTP mapping for the name-too-long error. Tests are well organised and robust because they set `disallowed_files` explicitly. They cover ordering, every upload error, the size limits, all three commands and `file_add()`. The antispam test is hacky: it raises the admin through `default_new_account_access_level`. There are no REST tests."
+    },
+    "merge_first": "A",
+    "why": "Both changes put the same correct checks into `file_ensure_uploaded()`. A goes further: it also handles web server upload errors in `proj_doc_update.php`, which B still ignores. It also returns a correct HTTP status for the name-too-long error and adds REST-level tests. B's tests are slightly more robust about configuration, but A is closer to what the task asks for."
+  }
+}

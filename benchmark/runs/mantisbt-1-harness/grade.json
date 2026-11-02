@@ -1,0 +1,35 @@
+{
+  "task": "mantisbt-1",
+  "arm": "harness",
+  "applied": true,
+  "apply_error": "",
+  "hidden": {
+    "code": 0,
+    "tests": {
+      "ran": 17,
+      "skipped": 0,
+      "failed": 0
+    },
+    "seconds": 10,
+    "tail": ""
+  },
+  "full": {
+    "code": 0,
+    "tests": {
+      "ran": 799,
+      "skipped": 0,
+      "failed": 0
+    },
+    "seconds": 82,
+    "tail": ""
+  },
+  "reference": {
+    "code": 0,
+    "tests": {
+      "ran": 749,
+      "skipped": 0,
+      "failed": 0
+    }
+  },
+  "solved": true
+}

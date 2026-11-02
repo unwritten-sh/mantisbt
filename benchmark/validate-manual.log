@@ -1,0 +1,6 @@
+[21:28:52] validate 4b0c66f1ce Standardize handler field handling
+[21:31:11]   valid=true
+[21:31:11] validate 596ae02a03 Project categories: use enabled and support global categories
+[21:33:29]   valid=false
+[21:34:12] validate 596ae02a03 Project categories: use enabled and support global categories
+[21:37:32]   valid=true

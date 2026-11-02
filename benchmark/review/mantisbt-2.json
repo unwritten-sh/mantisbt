@@ -1,0 +1,23 @@
+{
+  "task": "mantisbt-2",
+  "A": "control",
+  "B": "harness",
+  "answer": {
+    "A": {
+      "scope": 4,
+      "conventions": 4,
+      "tests": 5,
+      "readability": 4,
+      "notes": "Covers every requirement. The new category_resolve_handler accepts arrays or objects, rejects ids that are not positive and resolves names with user_get_id_by_name. Update tells a missing key apart from null, and an unchanged handler is not validated again. In the OpenAPI file it adds Category, CategoryCollection and CategoryResponse schemas and wires them into the responses. That is useful but goes a bit past the task. It also changes the parameters of the category_validate_assigned_to error, a small unrelated tweak. It writes its own resolver instead of using the existing user_get_id_by_user_info helper. Tests are thorough: add with id and name, add with no handler or null, update with set, keep, clear and set by id, 404 for an unknown id or name, rejection of malformed references (scalar, empty array, bad id, negative id, empty name), an anonymous REST check that the handler is hidden, and a new SOAP test for setting and clearing. Small helper methods keep the tests tidy."
+    },
+    "B": {
+      "scope": 5,
+      "conventions": 5,
+      "tests": 4,
+      "readability": 4,
+      "notes": "Covers every requirement. category_handler_to_user_id checks the shape of the reference, then calls the existing user_get_id_by_user_info helper. That reuses the project's usual pattern for user references, and existence is still checked through category_validate_assigned_to. The OpenAPI changes are small: request schemas reference UserRef, and the GET operations get a description of the handler. Combining nullable with allOf is a little awkward. Update reads $this->data['payload'] without a ?? fallback, a minor robustness gap. Tests cover add by name, get, keep on update, clear with null, set by id, a hidden-handler check run as a REPORTER user created inside the test (which does not depend on anonymous access being enabled), 404 and 400 cases for both commands, and REST tests for set by name, keep and clear. There is no SOAP test. It also replaced the existing update-by-id rejection check with update-by-name, so that test case no longer covers the id path."
+    },
+    "merge_first": "A",
+    "why": "Both changes are correct and nearly the same in the core code. B reuses an existing helper and keeps the OpenAPI edits tighter. A has broader tests, though: it covers the SOAP caller, more malformed inputs, and keeps both the id and name rejection cases. It also documents the category response schemas. A maintainer would gain more confidence from merging A first, accepting its slightly wider scope."
+  }
+}

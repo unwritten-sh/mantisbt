@@ -1,0 +1,58 @@
+[
+  {
+    "id": "mantisbt-1",
+    "sha": "b7741aa561bc1632ec24231e5b17dcca3c1e67ab",
+    "kind": "refactor with new checks (file upload)",
+    "text": "MantisBT issue #36861. The checks on uploaded files are spread over several places: some are in `file_ensure_uploaded()`, others in `file_add()`, `IssueAddCommand` and `proj_doc_update.php`. Some commands (adding a file to an issue, adding a note with files) do not check the files before they start, and some upload errors of the web server are not handled.\n\nCollect all checks of one uploaded file in `file_ensure_uploaded( array $p_file )`, and call it from the issue add, issue file add and issue note add commands (for each file, during validation) and from `file_add()`. Remove the duplicated checks from the other places. The function checks, in this order, and throws a `ClientException` with these messages (the file name in quotes):\n1. the antispam check;\n2. a missing or empty `name`: `File name is empty`;\n3. if an `error` key is present: `UPLOAD_ERR_OK` passes; `UPLOAD_ERR_INI_SIZE` and `UPLOAD_ERR_FORM_SIZE` give `File '<name>' too big`; any other error code gives `File '<name>' upload failure`;\n4. a name longer than the database field: `Filename '<name>' is too long`;\n5. a file type that is not allowed: `File '<name>' type not allowed`;\n6. a missing or empty `tmp_name`: `File '<name>' path is empty`;\n7. a temporary file that is not readable: `File '<name>' is not readable`;\n8. an empty file: `File '<name>' not uploaded`;\n9. a file bigger than the maximum file size: `File '<name>' too big`.\nKeep the error codes that the old checks used. A file array without an `error` key is valid (files added through the API have none).\n\nDone when:\n- every upload path uses this one function with the checks above;\n- the change is covered by tests;\n- the existing test suite still passes.",
+    "tests": [
+      "tests/Mantis/AntispamApiTest.php",
+      "tests/Mantis/FileApiTest.php"
+    ],
+    "product": [
+      "core/commands/IssueAddCommand.php",
+      "core/commands/IssueFileAddCommand.php",
+      "core/commands/IssueNoteAddCommand.php",
+      "core/file_api.php",
+      "proj_doc_update.php"
+    ]
+  },
+  {
+    "id": "mantisbt-2",
+    "sha": "4b0c66f1cedaf2b64fe4aaad9c9e3ac670b7f048",
+    "kind": "API change (category handler)",
+    "revert_patch": "patches/4b0c66f1ce.patch",
+    "text": "MantisBT issue #32470. In the category API, the default handler of a category (the user that new issues of that category are assigned to) uses a different shape from the rest of the API: requests send it as an integer field `assigned_to` and responses return it as `default_handler`. Elsewhere in the REST API, a user reference is an object with `id` or `name`, and the field of an issue is called `handler`.\n\nStandardize it:\n- Category add and update (the commands, so REST, SOAP and the web pages that use them) accept a `handler` field: an object `{\"id\": <user id>}` or `{\"name\": \"<user name>\"}`. On update, `\"handler\": null` clears the handler. A handler that does not exist gives 404 (not found). The rules that exist today still apply (the handler must be an enabled user; an unchanged invalid handler does not block other updates).\n- Category get returns the handler under the key `handler` (not `default_handler`), and leaves the key out when there is no handler or when the user cannot see it (no manage project access).\n- Update the callers (SOAP, the category and project management pages) and the OpenAPI description.\n\nDone when:\n- categories can be created, updated and read with the `handler` field as described;\n- the change is covered by tests;\n- the existing test suite still passes.",
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/rest/RestProjectCategoryTest.php"
+    ],
+    "product": [
+      "api/soap/mc_project_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryGetCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "manage_proj_cat_edit_page.php",
+      "manage_proj_cat_update.php",
+      "manage_proj_edit_page.php",
+      "manage_proj_page.php"
+    ]
+  },
+  {
+    "id": "mantisbt-3",
+    "sha": "596ae02a038a609996eac4575660d38e3851d696",
+    "kind": "API change (global categories)",
+    "revert_patch": "patches/596ae02a03.patch",
+    "text": "MantisBT issue #32470. Two problems in the category commands and the REST API for project categories:\n1. Global categories (categories of \"All projects\", project id 0) cannot be managed through the commands: add, update and delete reject project id 0 as a project that does not exist. Allow project id 0 (ALL_PROJECTS) in the add, update and delete category commands, so global categories can be added, changed and deleted like project ones. The delete rules stay the same (for example, the default category cannot be deleted).\n2. The REST API still accepts the old SOAP-only `status` field on category add and update, and it overrides `enabled`. The REST API must use only `enabled`: a `status` field in a REST request is ignored (a new category stays enabled, an update with only `status` changes nothing), and responses never contain `status`. Remove `status` from the OpenAPI description of the category requests. SOAP keeps working as today.\n\nDone when:\n- a global category can be added, updated and deleted through the commands, and REST ignores `status`;\n- the change is covered by tests;\n- the existing test suite still passes.",
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/rest/RestProjectCategoryTest.php"
+    ],
+    "product": [
+      "api/soap/mc_project_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryDeleteCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "manage_proj_cat_update.php"
+    ]
+  }
+]

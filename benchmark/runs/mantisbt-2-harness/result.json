@@ -1,0 +1,107 @@
+{
+  "task": "mantisbt-2",
+  "arm": "harness",
+  "start": "5e3e4c3b2f92c8677a2290f41535c3bdc5e7f76f",
+  "seconds": 366,
+  "result": {
+    "status": "done",
+    "summary": "The category add, update and get commands now use a `handler` user reference instead of `assigned_to` / `default_handler`, and all tests pass. Add and update accept `handler` as `{\"id\": n}` or `{\"name\": \"x\"}`. A new helper, `category_handler_to_user_id()` in core/category_api.php, turns it into a user id. On update, leaving `handler` out keeps the current handler and `\"handler\": null` clears it. The existing rules still apply: the handler must be an enabled user who can handle issues, and an unchanged invalid handler (disabled or deleted user) does not block other updates. An unknown id or name gives a 404 (user not found). A handler that is not an object, an empty object or an id that is not a number gives a 400. Get returns `handler`, and leaves it out when there is no handler or the caller has no manage project access. I updated the callers (SOAP rename, the category edit and update pages, and both project management pages) and the OpenAPI request schemas and GET descriptions. I added a log entry to docs/harness/log.md. The full gate passed (747 tests) before I added one last test; I then reran all 28 category-related tests (8 command tests and the REST and SOAP ones) and they pass. One behaviour change to note: the old `assigned_to` field is now ignored, not rejected.",
+    "changes": [
+      {
+        "path": "core/category_api.php",
+        "summary": "New category_handler_to_user_id(): turns a null / {id} / {name} handler into a user id. Gives a 400 for a bad shape and a 404 for an unknown name."
+      },
+      {
+        "path": "core/commands/CategoryAddCommand.php",
+        "summary": "Reads and checks `handler` instead of `assigned_to`."
+      },
+      {
+        "path": "core/commands/CategoryUpdateCommand.php",
+        "summary": "Reads `handler`: a missing key keeps the current handler, null clears it, and an unchanged handler is not checked again."
+      },
+      {
+        "path": "core/commands/CategoryGetCommand.php",
+        "summary": "Returns the handler under the key `handler` instead of `default_handler`."
+      },
+      {
+        "path": "api/soap/mc_project_api.php",
+        "summary": "mc_project_rename_category_by_name turns assigned_to into a handler reference (0 becomes null)."
+      },
+      {
+        "path": "manage_proj_cat_update.php",
+        "summary": "Sends a `handler` reference to CategoryUpdateCommand."
+      },
+      {
+        "path": "manage_proj_cat_edit_page.php",
+        "summary": "Reads `handler` from CategoryGetCommand."
+      },
+      {
+        "path": "manage_proj_page.php",
+        "summary": "Reads `handler` from CategoryGetCommand."
+      },
+      {
+        "path": "manage_proj_edit_page.php",
+        "summary": "Reads `handler` from CategoryGetCommand."
+      },
+      {
+        "path": "api/rest/mantisbt_openapi.yaml",
+        "summary": "ProjectCategoriesAdd/Update: `assigned_to` integer replaced by `handler` UserRef (nullable on update). GET operations describe the `handler` key and when it is returned."
+      },
+      {
+        "path": "tests/Mantis/CategoryCommandTest.php",
+        "summary": "Existing tests moved to `handler`. New tests: handler by name and id with get, keep and clear; hidden without manage access; unknown id or name gives not found; bad shapes give invalid field."
+      },
+      {
+        "path": "tests/rest/RestProjectCategoryTest.php",
+        "summary": "Existing tests moved to `handler`. New tests: set by name, read back, keep, clear with null; a scalar handler gives 400; an unknown id or name gives 404 on POST and PATCH."
+      },
+      {
+        "path": "docs/harness/log.md",
+        "summary": "Log entry for this change."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "Categories can be created, updated and read with the `handler` field as described",
+        "met": true,
+        "evidence": "New tests pass: CategoryCommandTest::testHandlerAsUserReference, testHandlerHiddenWithoutManageAccess, testHandlerNotFoundOrInvalid, and RestProjectCategoryTest::testProjectCategoryHandlerByNameAndClear, testProjectCategoryHandlerMustExist (404 for an unknown id or name), testProjectCategoryHandlerMustBeObject. testUpdateAllowsUnchangedInvalidHandler and testAssignedUserMustBeEnabled still pass with the `handler` field."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "`vendor/bin/phpunit --filter Category`: OK (28 tests, 152 assertions), including the 8 tests in CategoryCommandTest and the REST and SOAP category tests."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "`composer run check` exited 0: OK (747 tests, 2585 assertions). I added testHandlerHiddenWithoutManageAccess after that run; it passes in the filtered run. `composer run check-fast` passes (lint, OpenAPI valid, 22 unit tests)."
+      }
+    ],
+    "human_needed": [
+      {
+        "question": "Should the old integer `assigned_to` request field still be accepted (deprecated) for a while, or rejected with a 400, instead of being silently ignored as it is now?",
+        "why": "If REST clients of a released version already send `assigned_to`, their requests will now succeed but not set the handler."
+      }
+    ],
+    "harness_used": [
+      "CLAUDE.md/AGENTS.md: conventions, layers and verify steps (check-fast, then check because commands, REST and SOAP changed)",
+      "implement-change skill: workflow and where tests go (tests/Mantis vs tests/rest)",
+      "composer run lint / check-fast / check, and build/local_instance.sh serve to run the REST and SOAP tests alone",
+      "docs/harness/log.md for the change log"
+    ],
+    "harness_gaps": [
+      {
+        "file": "docs/local-dev.md",
+        "problem": "It does not say that `composer run check` stops the PHP web server at the end, so running the rest or soap tests alone afterwards fails with SoapClient/connection errors until `build/local_instance.sh serve` is started again."
+      },
+      {
+        "file": "core/commands/Command.php",
+        "problem": "There is no payload helper that tells a missing key from an explicit null (payload() uses isset), so commands that need PATCH-style null semantics must read $this->data['payload'] directly."
+      },
+      {
+        "file": ".claude/skills/rest-api-change",
+        "problem": "Nothing tells you that the shared Success response schema has no category response schema, so a response field like `handler` can only be described in prose."
+      }
+    ]
+  }
+}

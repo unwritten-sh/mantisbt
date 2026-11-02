@@ -1,0 +1,14 @@
+{
+  "arm": "harness",
+  "seconds": 120,
+  "command": "composer run test && composer run test-integration",
+  "code": 0,
+  "tests": {
+    "ran": 766,
+    "skipped": 0,
+    "failed": 0
+  },
+  "tail": "",
+  "reports": 0,
+  "ready": true
+}

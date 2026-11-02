@@ -1,0 +1,194 @@
+[
+  {
+    "sha": "abfbb131d370eea19cbe5788f4f03265d1fcc501",
+    "subject": "Apply category command style improvements",
+    "valid": false,
+    "error": "error: could not revert abfbb131d... Apply category command style improvements\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "cf9fe3bfd816342282f1d2e00232dc0447a143b8",
+    "subject": "Accept optional Bearer prefix on API token",
+    "valid": false,
+    "error": "error: could not revert cf9fe3bfd... Accept optional Bearer prefix on API token\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "b7741aa561bc1632ec24231e5b17dcca3c1e67ab",
+    "subject": "Optimize the verification of uploaded files",
+    "without": {
+      "code": 1,
+      "tests": {
+        "ran": 17,
+        "skipped": 0,
+        "failed": 8
+      }
+    },
+    "with": {
+      "code": 0,
+      "tests": {
+        "ran": 17,
+        "skipped": 0,
+        "failed": 0
+      },
+      "tail": ""
+    },
+    "valid": true,
+    "reference": {
+      "code": 0,
+      "tests": {
+        "ran": 749,
+        "skipped": 0,
+        "failed": 0
+      }
+    }
+  },
+  {
+    "sha": "36044d2684004e4f4fec9efac1716bbdf2e15bc7",
+    "subject": "Add a cache for tokens retrieved from the database",
+    "valid": false,
+    "error": "error: could not revert 36044d268... Add a cache for tokens retrieved from the database\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "febb203a4fcd34e11e512b18074fe1d5a49ccb00",
+    "subject": "PHP 8.5: non-canonical cast deprecations (integer => int)",
+    "without": {
+      "code": 1,
+      "tests": {
+        "ran": 10,
+        "skipped": 0,
+        "failed": 1
+      }
+    },
+    "with": {
+      "code": 0,
+      "tests": {
+        "ran": 10,
+        "skipped": 0,
+        "failed": 0
+      },
+      "tail": ""
+    },
+    "valid": false,
+    "reference": {
+      "code": 2,
+      "tests": {
+        "ran": 744,
+        "skipped": 0,
+        "failed": 2
+      }
+    }
+  },
+  {
+    "sha": "54a1b0f1f3113ee9572b1952d1c3fe7f9a7e3f7a",
+    "subject": "Config instead of constant for max longtext length",
+    "valid": false,
+    "error": "error: could not revert 54a1b0f1f... Config instead of constant for max longtext length\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "132e9d64aa11001229d6a7b8c7eebd467f1da2fe",
+    "subject": "Replace dirname( __FILE__ ) by __DIR__ (3)",
+    "valid": false,
+    "error": "error: could not revert 132e9d64a... Replace dirname( __FILE__ ) by __DIR__ (3)\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "aeeb60ecc8b2c4aaf349967897d4ab2b68b29b46",
+    "subject": "Use dirname()'s levels parameter",
+    "valid": false,
+    "error": "error: could not revert aeeb60ecc... Use dirname()'s levels parameter\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "4cdf5c7dd2e983f0b3e93a91878cbcf2f050f973",
+    "subject": "Fix indentation + php docs",
+    "valid": false,
+    "error": "error: could not revert 4cdf5c7dd... Fix indentation + php docs\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "5caafd27b114ef3964c852772b77ab1ae0fa5157",
+    "subject": "Add test cases for project version APIs + fixes",
+    "valid": false,
+    "error": "error: could not revert 5caafd27b... Add test cases for project version APIs + fixes\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "4d08ef6da0fb08b74b6d739c1610c89e5ae11bd7",
+    "subject": "REST API: Get API by username instead of ref - no more real name or email",
+    "valid": false,
+    "error": "error: could not revert 4d08ef6da... REST API: Get API by username instead of ref - no more real name or email\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "60f781b95428e74d69017c5e858a5af0c259f13a",
+    "subject": "REST API: Get User By Ref (where ref can be id, name, email, realname)",
+    "valid": false,
+    "error": "error: could not revert 60f781b95... REST API: Get User By Ref (where ref can be id, name, email, realname)\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "957f3818ae33064a7bf4a982c8488dd4a8b0c50d",
+    "subject": "REST API: Support select in Get User API and return as users array",
+    "valid": false,
+    "error": "error: could not revert 957f3818a... REST API: Support select in Get User API and return as users array\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "0f701bdb24b8af94faeea258f244a2927de35246",
+    "subject": "Markdown. external css to style the quotings.",
+    "valid": false,
+    "error": "error: could not revert 0f701bdb2... Markdown. external css to style the quotings.\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+  },
+  {
+    "sha": "4b0c66f1cedaf2b64fe4aaad9c9e3ac670b7f048",
+    "subject": "Standardize handler field handling",
+    "without": {
+      "code": 1,
+      "tests": {
+        "ran": 16,
+        "skipped": 0,
+        "failed": 4
+      }
+    },
+    "with": {
+      "code": 0,
+      "tests": {
+        "ran": 16,
+        "skipped": 0,
+        "failed": 0
+      },
+      "tail": ""
+    },
+    "valid": true,
+    "reference": {
+      "code": 0,
+      "tests": {
+        "ran": 765,
+        "skipped": 0,
+        "failed": 0
+      }
+    }
+  },
+  {
+    "sha": "596ae02a038a609996eac4575660d38e3851d696",
+    "subject": "Project categories: use enabled and support global categories",
+    "without": {
+      "code": 2,
+      "tests": {
+        "ran": 16,
+        "skipped": 0,
+        "failed": 2
+      }
+    },
+    "with": {
+      "code": 0,
+      "tests": {
+        "ran": 16,
+        "skipped": 0,
+        "failed": 0
+      },
+      "tail": ""
+    },
+    "valid": true,
+    "reference": {
+      "code": 0,
+      "tests": {
+        "ran": 763,
+        "skipped": 0,
+        "failed": 0
+      }
+    }
+  }
+]

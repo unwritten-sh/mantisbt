@@ -1,0 +1,1012 @@
+diff --git a/core/commands/IssueAddCommand.php b/core/commands/IssueAddCommand.php
+index fc531ee61..ae4a80728 100644
+--- a/core/commands/IssueAddCommand.php
++++ b/core/commands/IssueAddCommand.php
+@@ -347,18 +347,10 @@ class IssueAddCommand extends Command {
+ 				}
+ 			}
+ 
+-			foreach( $t_issue['files'] as $t_file ) {
+-				$t_name = $t_file['name'];
+-				if( strlen( $t_name ) > DB_FIELD_SIZE_FILENAME ) {
+-					throw new ClientException(
+-						"File name too long '$t_name'",
+-						ERROR_FILE_NAME_TOO_LONG,
+-						array( $t_name )
+-					);
+-				}
++			$this->files = file_filter_not_selected( $t_issue['files'] );
++			foreach( $this->files as $t_file ) {
++				file_ensure_uploaded( $t_file );
+ 			}
+-
+-			$this->files = $t_issue['files'];
+ 		}
+ 
+ 		# Trigger extensibility events to pre-process data before creating issue
+diff --git a/core/commands/IssueFileAddCommand.php b/core/commands/IssueFileAddCommand.php
+index b463c39f9..64d1aa219 100644
+--- a/core/commands/IssueFileAddCommand.php
++++ b/core/commands/IssueFileAddCommand.php
+@@ -18,6 +18,7 @@ require_api( 'authentication_api.php' );
+ require_api( 'bug_api.php' );
+ require_api( 'constant_inc.php' );
+ require_api( 'config_api.php' );
++require_api( 'file_api.php' );
+ require_api( 'helper_api.php' );
+ require_api( 'user_api.php' );
+ 
+@@ -141,6 +142,10 @@ class IssueFileAddCommand extends Command
+ 		if( !file_allow_bug_upload( $this->issue->id, $this->reporterId ) ) {
+ 			throw new ClientException( 'access denied for uploading files', ERROR_ACCESS_DENIED );
+ 		}
++
++		foreach( $this->files as $t_file ) {
++			file_ensure_uploaded( $t_file );
++		}
+ 	}
+ 
+ 	/**
+@@ -177,6 +182,9 @@ class IssueFileAddCommand extends Command
+ 			$this->files = array();
+ 		}
+ 
++		# Ignore empty file inputs of web forms
++		$this->files = file_filter_not_selected( $this->files );
++
+ 		$t_files_required_fields = array( 'name', 'tmp_name' );
+ 		foreach( $this->files as $t_file ) {
+ 			foreach( $t_files_required_fields as $t_field ) {
+diff --git a/core/commands/IssueNoteAddCommand.php b/core/commands/IssueNoteAddCommand.php
+index 8270b22a4..ee3f52aa9 100644
+--- a/core/commands/IssueNoteAddCommand.php
++++ b/core/commands/IssueNoteAddCommand.php
+@@ -18,6 +18,7 @@ require_api( 'authentication_api.php' );
+ require_api( 'bug_api.php' );
+ require_api( 'constant_inc.php' );
+ require_api( 'config_api.php' );
++require_api( 'file_api.php' );
+ require_api( 'helper_api.php' );
+ require_api( 'user_api.php' );
+ 
+@@ -207,6 +208,10 @@ class IssueNoteAddCommand extends Command {
+ 						ERROR_ACCESS_DENIED );
+ 				}
+ 			}
++
++			foreach( $this->files as $t_file ) {
++				file_ensure_uploaded( $t_file );
++			}
+ 		}
+ 
+ 		# Can reporter add time tracking information?
+@@ -326,6 +331,9 @@ class IssueNoteAddCommand extends Command {
+ 			$this->files = array();
+ 		}
+ 
++		# Ignore empty file inputs of web forms
++		$this->files = file_filter_not_selected( $this->files );
++
+ 		$t_files_required_fields = array( 'name', 'tmp_name' );
+ 		foreach( $this->files as $t_file ) {
+ 			foreach( $t_files_required_fields as $t_field ) {
+diff --git a/core/error_api.php b/core/error_api.php
+index 1230f0293..06f72733b 100644
+--- a/core/error_api.php
++++ b/core/error_api.php
+@@ -841,6 +841,7 @@ function error_map_mantis_error_to_http_code( $p_error ) {
+ 		case ERROR_FILE_NOT_ALLOWED:
+ 		case ERROR_FILE_DUPLICATE:
+ 		case ERROR_FILE_NO_UPLOAD_FAILURE:
++		case ERROR_FILE_NAME_TOO_LONG:
+ 		case ERROR_PROJECT_NAME_NOT_UNIQUE:
+ 		case ERROR_PROJECT_NAME_INVALID:
+ 		case ERROR_PROJECT_RECURSIVE_HIERARCHY:
+diff --git a/core/file_api.php b/core/file_api.php
+index 7f64c8742..0e6bffd9b 100644
+--- a/core/file_api.php
++++ b/core/file_api.php
+@@ -94,6 +94,34 @@ function file_attach_files( $p_bug_id, $p_files, $p_bugnote_id = 0 ) {
+ 	return $t_file_infos;
+ }
+ 
++/**
++ * Remove the entries of a list of uploaded files for which the user did not
++ * select any file.
++ *
++ * A web form with an empty file input sends an entry with an empty name and
++ * the error code UPLOAD_ERR_NO_FILE. Such entries are not upload errors and
++ * are ignored by file_attach_files().
++ *
++ * @param array $p_files List of file arrays, as retrieved from gpc_get_file()
++ *                       and transposed with helper_array_transpose().
++ *
++ * @return array The files that were selected, with keys re-indexed.
++ */
++function file_filter_not_selected( array $p_files ) {
++	$t_files = array();
++	foreach( $p_files as $t_file ) {
++		if( is_array( $t_file )
++			&& empty( $t_file['name'] )
++			&& isset( $t_file['error'] )
++			&& UPLOAD_ERR_NO_FILE == $t_file['error']
++		) {
++			continue;
++		}
++		$t_files[] = $t_file;
++	}
++	return $t_files;
++}
++
+ /**
+  * Gets the filename without the bug id prefix.
+  *
+@@ -919,9 +947,7 @@ function file_is_name_unique( $p_name, $p_bug_id, $p_table = 'bug' ) {
+ function file_add( $p_bug_id, array $p_file, $p_table = 'bug', $p_title = '', $p_desc = '', $p_user_id = null, $p_date_added = 0, $p_skip_bug_update = false, $p_bugnote_id = 0 ) {
+ 	$t_file_info = array();
+ 
+-	if( !isset( $p_file['error'] ) ) {
+-		$p_file['error'] = UPLOAD_ERR_OK;
+-	}
++	file_ensure_uploaded( $p_file );
+ 
+ 	if( !isset( $p_file['browser_upload'] ) ) {
+ 		$p_file['browser_upload'] = true;
+@@ -941,24 +967,7 @@ function file_add( $p_bug_id, array $p_file, $p_table = 'bug', $p_title = '', $p
+ 		$p_file['type'] = 'application/octet-stream';
+ 	}
+ 
+-	file_ensure_uploaded( $p_file );
+ 	$t_file_name = $p_file['name'];
+-
+-	if( strlen( $t_file_name ) > DB_FIELD_SIZE_FILENAME ) {
+-		throw new ClientException(
+-			sprintf( "Filename '%s' is too long", $t_file_name ),
+-			ERROR_FILE_NAME_TOO_LONG,
+-			array( $t_file_name )
+-		);
+-	}
+-
+-	if( !file_type_check( $t_file_name ) ) {
+-		throw new ClientException(
+-			sprintf( "File '%s' type not allowed", $t_file_name ),
+-			ERROR_FILE_NOT_ALLOWED
+-		);
+-	}
+-
+ 	$t_org_filename = $t_file_name;
+ 	$t_suffix_id = 1;
+ 
+@@ -975,24 +984,10 @@ function file_add( $p_bug_id, array $p_file, $p_table = 'bug', $p_title = '', $p
+ 	}
+ 
+ 	$t_file_info['name'] = $t_file_name;
+-	antispam_check();
+ 
+ 	$t_file_size = filesize( $t_tmp_file );
+-	if( 0 == $t_file_size ) {
+-		throw new ClientException(
+-			sprintf( "File '%s' not uploaded", $t_file_name ),
+-			ERROR_FILE_NO_UPLOAD_FAILURE );
+-	}
+-
+ 	$t_file_info['size'] = $t_file_size;
+ 
+-	$t_max_file_size = (int)min( ini_get_number( 'upload_max_filesize' ), ini_get_number( 'post_max_size' ), config_get( 'max_file_size' ) );
+-	if( $t_file_size > $t_max_file_size ) {
+-		throw new ClientException(
+-			sprintf( "File '%s' too big", $t_file_name ),
+-			ERROR_FILE_TOO_BIG );
+-	}
+-
+ 	if( 'bug' == $p_table ) {
+ 		$t_project_id = bug_get_field( $p_bug_id, 'project_id' );
+ 		$t_id = (int)$p_bug_id;
+@@ -1215,40 +1210,91 @@ function file_ensure_valid_upload_path( $p_upload_path ) {
+ }
+ 
+ /**
+- * Ensure a file was uploaded.
++ * Ensure a file was uploaded and can be stored.
++ *
++ * This function performs all the checks on one uploaded file, in this order:
++ * antispam, file name, upload error reported by PHP (if any), file name
++ * length, file type, temporary file path, readability, empty file and
++ * maximum file size.
+  *
+- * This function perform various checks for determining if the upload was
+- * successful.
++ * A file array without an 'error' key is valid (e.g. files added through
++ * the API).
+  *
+  * @param array $p_file The uploaded file info, as retrieved from
+- *                      gpc_get_file().
++ *                      gpc_get_file() (keys: name, tmp_name, error).
+  *
+  * @return void
+  * @throws ClientException
+  */
+ function file_ensure_uploaded( array $p_file ) {
+-	switch( $p_file['error'] ) {
+-		case UPLOAD_ERR_INI_SIZE:
+-		case UPLOAD_ERR_FORM_SIZE:
+-			throw new ClientException(
+-				sprintf( "File '%s' too big", $p_file['name'] ),
+-				ERROR_FILE_TOO_BIG );
++	antispam_check();
+ 
+-		case UPLOAD_ERR_PARTIAL:
+-		case UPLOAD_ERR_NO_FILE:
+-			throw new ClientException(
+-				sprintf( "File '%s' upload failure", $p_file['name'] ),
+-				ERROR_FILE_NO_UPLOAD_FAILURE );
++	$t_file_name = isset( $p_file['name'] ) ? (string)$p_file['name'] : '';
++	if( '' === $t_file_name ) {
++		throw new ClientException(
++			'File name is empty',
++			ERROR_FILE_NO_UPLOAD_FAILURE );
++	}
++
++	if( isset( $p_file['error'] ) ) {
++		switch( (int)$p_file['error'] ) {
++			case UPLOAD_ERR_OK:
++				break;
++
++			case UPLOAD_ERR_INI_SIZE:
++			case UPLOAD_ERR_FORM_SIZE:
++				throw new ClientException(
++					sprintf( "File '%s' too big", $t_file_name ),
++					ERROR_FILE_TOO_BIG );
++
++			default:
++				# UPLOAD_ERR_PARTIAL, UPLOAD_ERR_NO_FILE, UPLOAD_ERR_NO_TMP_DIR,
++				# UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION and unknown codes
++				throw new ClientException(
++					sprintf( "File '%s' upload failure", $t_file_name ),
++					ERROR_FILE_NO_UPLOAD_FAILURE );
++		}
+ 	}
+ 
+-	if( ( '' == $p_file['tmp_name'] ) || ( '' == $p_file['name'] ) ) {
++	if( strlen( $t_file_name ) > DB_FIELD_SIZE_FILENAME ) {
+ 		throw new ClientException(
+-			'File name or path is empty',
++			sprintf( "Filename '%s' is too long", $t_file_name ),
++			ERROR_FILE_NAME_TOO_LONG,
++			array( $t_file_name )
++		);
++	}
++
++	if( !file_type_check( $t_file_name ) ) {
++		throw new ClientException(
++			sprintf( "File '%s' type not allowed", $t_file_name ),
++			ERROR_FILE_NOT_ALLOWED
++		);
++	}
++
++	$t_tmp_name = isset( $p_file['tmp_name'] ) ? (string)$p_file['tmp_name'] : '';
++	if( '' === $t_tmp_name ) {
++		throw new ClientException(
++			sprintf( "File '%s' path is empty", $t_file_name ),
+ 			ERROR_FILE_NO_UPLOAD_FAILURE );
+ 	}
+ 
+-	if( !is_readable( $p_file['tmp_name'] ) ) {
+-		throw new ClientException( 'File is not readable', ERROR_UPLOAD_FAILURE );
++	if( !is_readable( $t_tmp_name ) ) {
++		throw new ClientException(
++			sprintf( "File '%s' is not readable", $t_file_name ),
++			ERROR_UPLOAD_FAILURE );
++	}
++
++	$t_file_size = filesize( $t_tmp_name );
++	if( !$t_file_size ) {
++		throw new ClientException(
++			sprintf( "File '%s' not uploaded", $t_file_name ),
++			ERROR_FILE_NO_UPLOAD_FAILURE );
++	}
++
++	if( $t_file_size > file_get_max_file_size() ) {
++		throw new ClientException(
++			sprintf( "File '%s' too big", $t_file_name ),
++			ERROR_FILE_TOO_BIG );
+ 	}
+ }
+ 
+diff --git a/docs/harness/log.md b/docs/harness/log.md
+index f53d2fc6e..e07857744 100644
+--- a/docs/harness/log.md
++++ b/docs/harness/log.md
+@@ -110,3 +110,24 @@ Risks seen before the harness:
+ - ci: npx -y uw-harness verify returned 404 from the npm registry on 2026-11-01 (package not published). The new harness.yml workflow will fail until uw-harness is published; it was not run on GitHub. Locally the check was run with the uw-harness source checkout and passed.
+ - local-env: PostgreSQL support (DB_TYPE=pgsql, compose profile pgsql) was written but not run. Only MySQL was verified. The full gate drops and reinstalls the local database each time, and needs host port 3306 free because the mysqli driver ignores other ports.
+ - full-gate: The full gate does not build the DocBook guides or the SOAP WSDL HTML (documentation.yml needs Publican and xsltproc, not available as composer/npm dependencies). Everything else from CI (lint, api:validate, api:generate, all four PHPUnit suites) is in composer run check.
++
++## 2026-11-01: Collect the checks on uploaded files (issue #36861)
++
++**Changed**
++
++- `file_ensure_uploaded()` in `core/file_api.php` now does all checks on one uploaded file, in a fixed order: antispam, empty name, PHP upload error (any code other than `UPLOAD_ERR_OK`), name length, file type, empty `tmp_name`, readability, empty file, maximum size. A file array without an `error` key is valid (REST files have none).
++- `file_add()`, `IssueAddCommand`, `IssueFileAddCommand`, `IssueNoteAddCommand` (during validation, for each file) and `proj_doc_update.php` call it. The duplicated checks were removed from these places.
++- New `file_filter_not_selected()`: the commands remove the entries that web forms send for an empty file input (`name` empty and `UPLOAD_ERR_NO_FILE`) before they check the files.
++- `proj_doc_update.php` no longer ignores web server upload errors (before, a file with an upload error was skipped and only the title was saved).
++- `ERROR_FILE_NAME_TOO_LONG` now maps to HTTP 400 in `error_map_api_error_to_http_status()` (it gave 500).
++- Tests: `tests/Mantis/FileEnsureUploadedTest.php`, plus REST tests in `RestIssueTest` and `RestIssueNotesTest`.
++
++**Learned**
++
++- `IssueAddCommand` needs the SOAP `mci_*` helpers, so it is easier to test through the REST suite than in `tests/Mantis/`.
++- `MantisCoreBase::login()` makes assertions, so `@doesNotPerformAssertions` gives a risky test, and the full gate reports it.
++- To test `antispam_check()`, set `$g_allow_signup` in `$GLOBALS` and clear `$g_cache_config_eval['g_allow_signup']`; it is a global option and `config_set()` cannot change it.
++
++**Left**
++
++- SOAP `mci_file_add()` (`api/soap/mc_file_api.php`) writes the content itself and does not use `file_add()`; it keeps its own type and size checks.
+diff --git a/proj_doc_update.php b/proj_doc_update.php
+index 19de68aab..effa44ef7 100644
+--- a/proj_doc_update.php
++++ b/proj_doc_update.php
+@@ -82,15 +82,25 @@ if( is_blank( $f_title ) ) {
+ 
+ # @todo (thraxisp) this code should probably be integrated into file_api to share methods used to store files
+ 
+-if( isset( $f_file['tmp_name'] ) && is_uploaded_file( $f_file['tmp_name'] ) ) {
++# A new file was selected, unless the browser did not send one. Upload errors
++# reported by the web server must not be ignored.
++if( isset( $f_file['error'] ) ) {
++	$t_file_selected = UPLOAD_ERR_NO_FILE != $f_file['error'];
++} else {
++	$t_file_selected = !empty( $f_file['tmp_name'] );
++}
++
++if( $t_file_selected ) {
+ 	file_ensure_uploaded( $f_file );
+ 
+-	$t_file_name = $f_file['name'];
+-	if( strlen( $t_file_name ) > DB_FIELD_SIZE_FILENAME ) {
+-		error_parameters( $t_file_name );
+-		trigger_error( ERROR_FILE_NAME_TOO_LONG, ERROR );
++	if( !is_uploaded_file( $f_file['tmp_name'] ) ) {
++		throw new ClientException(
++			sprintf( "File '%s' upload failure", $f_file['name'] ),
++			ERROR_FILE_NO_UPLOAD_FAILURE );
+ 	}
+ 
++	$t_file_name = $f_file['name'];
++
+ 	$t_project_id = helper_get_current_project();
+ 
+ 	# grab the original file path and name
+@@ -99,10 +109,6 @@ if( isset( $f_file['tmp_name'] ) && is_uploaded_file( $f_file['tmp_name'] ) ) {
+ 
+ 	# prepare variables for insertion
+ 	$t_file_size = filesize( $f_file['tmp_name'] );
+-	$t_max_file_size = file_get_max_file_size();
+-	if( $t_file_size > $t_max_file_size ) {
+-		trigger_error( ERROR_FILE_TOO_BIG, ERROR );
+-	}
+ 
+ 	$t_method = config_get( 'file_upload_method' );
+ 	switch( $t_method ) {
+diff --git a/tests/Mantis/FileEnsureUploadedTest.php b/tests/Mantis/FileEnsureUploadedTest.php
+new file mode 100644
+index 000000000..0dd8cd0a9
+--- /dev/null
++++ b/tests/Mantis/FileEnsureUploadedTest.php
+@@ -0,0 +1,523 @@
++<?php
++# MantisBT - A PHP based bugtracking system
++
++# MantisBT is free software: you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation, either version 2 of the License, or
++# (at your option) any later version.
++#
++# MantisBT is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with MantisBT.  If not, see <http://www.gnu.org/licenses/>.
++
++/**
++ * Test cases for the checks on uploaded files (file_ensure_uploaded())
++ * and their use by the commands that attach files.
++ *
++ * @package    Tests
++ * @subpackage FileApi
++ * @copyright  Copyright MantisBT Team - mantisbt-dev@lists.sourceforge.net
++ * @link       http://www.mantisbt.org
++ *
++ * @noinspection PhpIllegalPsrClassPathInspection
++ */
++
++namespace Mantis\tests\Mantis;
++
++use Mantis\Exceptions\ClientException;
++
++require_api( 'file_api.php' );
++
++/**
++ * PHPUnit tests for file_ensure_uploaded()
++ */
++class FileEnsureUploadedTest extends MantisCoreBase {
++	/**
++	 * @var string[] Temporary files to delete after the test
++	 */
++	private $tmpFiles = array();
++
++	/**
++	 * @var int[] Issues to delete after the test
++	 */
++	private $issueIds = array();
++
++	/**
++	 * @var int[] Users to delete after the test
++	 */
++	private $userIds = array();
++
++	/**
++	 * @var array Configuration options to restore after the test
++	 */
++	private $oldConfigs = array();
++
++	/**
++	 * @var mixed|null Old value of the global allow_signup option
++	 */
++	private $oldAllowSignup = null;
++
++	protected function setUp(): void {
++		parent::setUp();
++		self::login();
++	}
++
++	protected function tearDown(): void {
++		foreach( $this->oldConfigs as $t_config => $t_value ) {
++			$this->restoreConfig( $t_config, $t_value );
++		}
++
++		if( $this->oldAllowSignup !== null ) {
++			$this->setAllowSignup( $this->oldAllowSignup );
++		}
++
++		self::login();
++
++		foreach( $this->issueIds as $t_issue_id ) {
++			if( bug_exists( $t_issue_id ) ) {
++				bug_delete( $t_issue_id );
++			}
++		}
++
++		foreach( $this->userIds as $t_user_id ) {
++			user_delete( $t_user_id );
++		}
++
++		foreach( $this->tmpFiles as $t_file ) {
++			if( file_exists( $t_file ) ) {
++				unlink( $t_file );
++			}
++		}
++
++		parent::tearDown();
++	}
++
++	/**
++	 * A valid file passes, with or without the 'error' key.
++	 */
++	public function testValidFile() {
++		$t_file = $this->createFile( 'valid.txt' );
++		$this->assertNull( file_ensure_uploaded( $t_file ) );
++
++		unset( $t_file['error'] );
++		$this->assertNull( file_ensure_uploaded( $t_file ) );
++	}
++
++	/**
++	 * Data provider for testInvalidFile().
++	 *
++	 * Each case: file array modifier, expected message, expected error code.
++	 *
++	 * @return array
++	 */
++	public static function providerInvalidFile() {
++		$t_long_name = str_repeat( 'a', DB_FIELD_SIZE_FILENAME ) . '.txt';
++
++		return array(
++			'name missing' => array(
++				array( 'name' => null ),
++				'File name is empty',
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'name empty' => array(
++				array( 'name' => '' ),
++				'File name is empty',
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'name empty before upload error' => array(
++				array( 'name' => '', 'error' => UPLOAD_ERR_NO_FILE ),
++				'File name is empty',
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'ini size' => array(
++				array( 'error' => UPLOAD_ERR_INI_SIZE ),
++				"File 'test.txt' too big",
++				ERROR_FILE_TOO_BIG,
++			),
++			'form size' => array(
++				array( 'error' => UPLOAD_ERR_FORM_SIZE ),
++				"File 'test.txt' too big",
++				ERROR_FILE_TOO_BIG,
++			),
++			'partial' => array(
++				array( 'error' => UPLOAD_ERR_PARTIAL ),
++				"File 'test.txt' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'no file' => array(
++				array( 'error' => UPLOAD_ERR_NO_FILE ),
++				"File 'test.txt' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'no tmp dir' => array(
++				array( 'error' => UPLOAD_ERR_NO_TMP_DIR ),
++				"File 'test.txt' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'cant write' => array(
++				array( 'error' => UPLOAD_ERR_CANT_WRITE ),
++				"File 'test.txt' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'extension' => array(
++				array( 'error' => UPLOAD_ERR_EXTENSION ),
++				"File 'test.txt' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'unknown error code' => array(
++				array( 'error' => 99 ),
++				"File 'test.txt' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'upload error before name too long' => array(
++				array( 'name' => $t_long_name, 'error' => UPLOAD_ERR_PARTIAL ),
++				"File '$t_long_name' upload failure",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'name too long' => array(
++				array( 'name' => $t_long_name ),
++				"Filename '$t_long_name' is too long",
++				ERROR_FILE_NAME_TOO_LONG,
++			),
++			'name too long before type' => array(
++				array( 'name' => str_repeat( 'a', DB_FIELD_SIZE_FILENAME ) . '.svg' ),
++				"Filename '" . str_repeat( 'a', DB_FIELD_SIZE_FILENAME ) . ".svg' is too long",
++				ERROR_FILE_NAME_TOO_LONG,
++			),
++			'type not allowed' => array(
++				array( 'name' => 'test.svg' ),
++				"File 'test.svg' type not allowed",
++				ERROR_FILE_NOT_ALLOWED,
++			),
++			'type before path' => array(
++				array( 'name' => 'test.svg', 'tmp_name' => '' ),
++				"File 'test.svg' type not allowed",
++				ERROR_FILE_NOT_ALLOWED,
++			),
++			'path missing' => array(
++				array( 'tmp_name' => null ),
++				"File 'test.txt' path is empty",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'path empty' => array(
++				array( 'tmp_name' => '' ),
++				"File 'test.txt' path is empty",
++				ERROR_FILE_NO_UPLOAD_FAILURE,
++			),
++			'not readable' => array(
++				array( 'tmp_name' => '/nonexistent/mantis-test-file' ),
++				"File 'test.txt' is not readable",
++				ERROR_UPLOAD_FAILURE,
++			),
++		);
++	}
++
++	/**
++	 * Each invalid file gives the expected exception.
++	 *
++	 * @dataProvider providerInvalidFile
++	 *
++	 * @param array  $p_changes Changes to apply to a valid file array (null removes the key).
++	 * @param string $p_message Expected exception message.
++	 * @param int    $p_code    Expected error code.
++	 */
++	public function testInvalidFile( array $p_changes, $p_message, $p_code ) {
++		$t_file = $this->createFile( 'test.txt' );
++		foreach( $p_changes as $t_key => $t_value ) {
++			if( $t_value === null ) {
++				unset( $t_file[$t_key] );
++			} else {
++				$t_file[$t_key] = $t_value;
++			}
++		}
++
++		$this->assertClientException( $t_file, $p_message, $p_code );
++	}
++
++	/**
++	 * An empty file is rejected.
++	 */
++	public function testEmptyFile() {
++		$t_file = $this->createFile( 'empty.txt', '' );
++		$this->assertClientException( $t_file, "File 'empty.txt' not uploaded", ERROR_FILE_NO_UPLOAD_FAILURE );
++	}
++
++	/**
++	 * A file bigger than the maximum file size is rejected.
++	 */
++	public function testFileTooBig() {
++		$this->changeConfig( 'max_file_size', 10 );
++		$t_file = $this->createFile( 'big.txt', str_repeat( 'x', 11 ) );
++		$this->assertClientException( $t_file, "File 'big.txt' too big", ERROR_FILE_TOO_BIG );
++
++		# Exactly the maximum size is fine
++		$t_file = $this->createFile( 'max.txt', str_repeat( 'x', 10 ) );
++		file_ensure_uploaded( $t_file );
++	}
++
++	/**
++	 * The antispam check is done first, before any other check.
++	 */
++	public function testAntispamCheckedFirst() {
++		$this->loginAsSpammer();
++
++		$this->assertClientException( array( 'name' => '' ), 'Hit rate limit threshold', ERROR_SPAM_SUSPECTED );
++	}
++
++	/**
++	 * Entries for empty file inputs of web forms are removed, others are kept.
++	 */
++	public function testFilterNotSelected() {
++		$t_valid = $this->createFile( 'valid.txt' );
++		$t_not_selected = array( 'name' => '', 'type' => '', 'tmp_name' => '', 'error' => UPLOAD_ERR_NO_FILE, 'size' => 0 );
++		$t_api_no_name = array( 'name' => '', 'tmp_name' => '/tmp/x' );
++		$t_failed = array( 'name' => 'a.txt', 'tmp_name' => '', 'error' => UPLOAD_ERR_PARTIAL );
++
++		$t_result = file_filter_not_selected( array( $t_not_selected, $t_valid, $t_api_no_name, $t_failed, $t_not_selected ) );
++
++		$this->assertSame( array( $t_valid, $t_api_no_name, $t_failed ), $t_result );
++	}
++
++	/**
++	 * IssueFileAddCommand checks the files during validation, before any file is added.
++	 */
++	public function testIssueFileAddCommandChecksFiles() {
++		$t_issue_id = $this->createIssue();
++		$t_data = array(
++			'query' => array( 'issue_id' => $t_issue_id ),
++			'payload' => array( 'files' => array(
++				$this->createFile( 'good.txt' ),
++				$this->createFile( 'bad.svg' ),
++			) ),
++		);
++
++		try {
++			$t_command = new \IssueFileAddCommand( $t_data );
++			$t_command->execute();
++			$this->fail( 'Expected ClientException' );
++		} catch( ClientException $e ) {
++			$this->assertEquals( ERROR_FILE_NOT_ALLOWED, $e->getCode() );
++			$this->assertEquals( "File 'bad.svg' type not allowed", $e->getMessage() );
++		}
++
++		$this->assertCount( 0, file_get_visible_attachments( $t_issue_id ), 'No file must be added' );
++	}
++
++	/**
++	 * IssueFileAddCommand reports an upload error of the web server.
++	 */
++	public function testIssueFileAddCommandUploadError() {
++		$t_issue_id = $this->createIssue();
++		$t_file = array( 'name' => 'big.txt', 'type' => '', 'tmp_name' => '', 'error' => UPLOAD_ERR_INI_SIZE, 'size' => 0 );
++		$t_data = array(
++			'query' => array( 'issue_id' => $t_issue_id ),
++			'payload' => array( 'files' => array( $t_file ) ),
++		);
++
++		$this->expectException( ClientException::class );
++		$this->expectExceptionMessage( "File 'big.txt' too big" );
++		$this->expectExceptionCode( ERROR_FILE_TOO_BIG );
++
++		$t_command = new \IssueFileAddCommand( $t_data );
++		$t_command->execute();
++	}
++
++	/**
++	 * IssueFileAddCommand ignores empty file inputs, so no file is provided.
++	 */
++	public function testIssueFileAddCommandOnlyEmptyInput() {
++		$t_issue_id = $this->createIssue();
++		$t_file = array( 'name' => '', 'type' => '', 'tmp_name' => '', 'error' => UPLOAD_ERR_NO_FILE, 'size' => 0 );
++		$t_data = array(
++			'query' => array( 'issue_id' => $t_issue_id ),
++			'payload' => array( 'files' => array( $t_file ) ),
++		);
++
++		$this->expectException( ClientException::class );
++		$this->expectExceptionCode( ERROR_INVALID_FIELD_VALUE );
++
++		$t_command = new \IssueFileAddCommand( $t_data );
++		$t_command->execute();
++	}
++
++	/**
++	 * IssueFileAddCommand adds valid files, with and without the 'error' key.
++	 */
++	public function testIssueFileAddCommandValidFiles() {
++		$t_issue_id = $this->createIssue();
++		$t_api_file = $this->createFile( 'api.txt' );
++		unset( $t_api_file['error'] );
++		$t_api_file['browser_upload'] = false;
++		$t_web_file = $this->createFile( 'web.txt' );
++		$t_web_file['browser_upload'] = false;
++		$t_data = array(
++			'query' => array( 'issue_id' => $t_issue_id ),
++			'payload' => array( 'files' => array(
++				$t_api_file,
++				array( 'name' => '', 'type' => '', 'tmp_name' => '', 'error' => UPLOAD_ERR_NO_FILE, 'size' => 0 ),
++				$t_web_file,
++			) ),
++		);
++
++		$t_command = new \IssueFileAddCommand( $t_data );
++		$t_command->execute();
++
++		$this->assertCount( 2, file_get_visible_attachments( $t_issue_id ) );
++	}
++
++	/**
++	 * IssueNoteAddCommand checks the files during validation, before the note is added.
++	 */
++	public function testIssueNoteAddCommandChecksFiles() {
++		$t_issue_id = $this->createIssue();
++		$t_data = array(
++			'query' => array( 'issue_id' => $t_issue_id ),
++			'payload' => array(
++				'text' => 'Note with an empty file',
++				'files' => array( $this->createFile( 'empty.txt', '' ) ),
++			),
++		);
++
++		try {
++			$t_command = new \IssueNoteAddCommand( $t_data );
++			$t_command->execute();
++			$this->fail( 'Expected ClientException' );
++		} catch( ClientException $e ) {
++			$this->assertEquals( ERROR_FILE_NO_UPLOAD_FAILURE, $e->getCode() );
++			$this->assertEquals( "File 'empty.txt' not uploaded", $e->getMessage() );
++		}
++
++		$this->assertCount( 0, bugnote_get_all_bugnotes( $t_issue_id ), 'No note must be added' );
++	}
++
++	/**
++	 * file_add() does the same checks.
++	 */
++	public function testFileAddChecksFile() {
++		$t_issue_id = $this->createIssue();
++		$t_file = $this->createFile( 'bad.svg' );
++
++		try {
++			file_add( $t_issue_id, $t_file );
++			$this->fail( 'Expected ClientException' );
++		} catch( ClientException $e ) {
++			$this->assertEquals( ERROR_FILE_NOT_ALLOWED, $e->getCode() );
++		}
++
++		$t_file = $this->createFile( 'test.txt' );
++		$t_file['error'] = UPLOAD_ERR_PARTIAL;
++		try {
++			file_add( $t_issue_id, $t_file );
++			$this->fail( 'Expected ClientException' );
++		} catch( ClientException $e ) {
++			$this->assertEquals( "File 'test.txt' upload failure", $e->getMessage() );
++		}
++
++		$this->assertCount( 0, file_get_visible_attachments( $t_issue_id ) );
++	}
++
++	/**
++	 * Check that file_ensure_uploaded() throws the expected exception.
++	 *
++	 * @param array  $p_file    File array.
++	 * @param string $p_message Expected message.
++	 * @param int    $p_code    Expected error code.
++	 */
++	private function assertClientException( array $p_file, $p_message, $p_code ) {
++		try {
++			file_ensure_uploaded( $p_file );
++			$this->fail( "Expected ClientException '$p_message'" );
++		} catch( ClientException $e ) {
++			$this->assertEquals( $p_message, $e->getMessage() );
++			$this->assertEquals( $p_code, $e->getCode() );
++		}
++	}
++
++	/**
++	 * Create a temporary file and return its file array, as sent by PHP.
++	 *
++	 * @param string $p_name    File name.
++	 * @param string $p_content File content.
++	 * @return array
++	 */
++	private function createFile( $p_name, $p_content = 'test content' ) {
++		$t_tmp_name = tempnam( sys_get_temp_dir(), 'MantisTest' );
++		file_put_contents( $t_tmp_name, $p_content );
++		$this->tmpFiles[] = $t_tmp_name;
++
++		return array(
++			'name' => $p_name,
++			'type' => 'text/plain',
++			'tmp_name' => $t_tmp_name,
++			'error' => UPLOAD_ERR_OK,
++			'size' => strlen( $p_content ),
++		);
++	}
++
++	/**
++	 * Create a test issue.
++	 *
++	 * @return int Issue id
++	 */
++	private function createIssue() {
++		$t_issue = new \BugData();
++		$t_issue->project_id = 1;
++		$t_issue->summary = __CLASS__ . ': test issue ' . rand( 1, 1000000 );
++		$t_issue->description = 'Test issue for file checks';
++		$t_issue->category_id = 1;
++
++		$t_issue_id = $t_issue->create();
++		$this->issueIds[] = $t_issue_id;
++		return $t_issue_id;
++	}
++
++	/**
++	 * Set a configuration option and remember its old value.
++	 *
++	 * @param string $p_config Option name.
++	 * @param mixed  $p_value  New value.
++	 */
++	private function changeConfig( $p_config, $p_value ) {
++		$t_old = $this->setConfig( $p_config, $p_value );
++		if( !array_key_exists( $p_config, $this->oldConfigs ) ) {
++			$this->oldConfigs[$p_config] = $t_old;
++		}
++	}
++
++	/**
++	 * Set the global allow_signup option.
++	 *
++	 * @param mixed $p_value New value.
++	 */
++	private function setAllowSignup( $p_value ) {
++		global $g_cache_config_eval;
++		$GLOBALS['g_allow_signup'] = $p_value;
++		unset( $g_cache_config_eval['g_allow_signup'] );
++	}
++
++	/**
++	 * Log in as a new reporter that has reached the antispam limit.
++	 */
++	private function loginAsSpammer() {
++		$this->oldAllowSignup = config_get_global( 'allow_signup' );
++		$this->setAllowSignup( ON );
++
++		$t_issue_id = $this->createIssue();
++
++		$t_username = 'spam' . rand( 1, 1000000 );
++		user_create( $t_username, 'password', $t_username . '@localhost.localdomain', REPORTER );
++		$t_user_id = user_get_id_by_name( $t_username );
++		$this->userIds[] = $t_user_id;
++
++		$this->changeConfig( 'default_new_account_access_level', REPORTER );
++		$this->changeConfig( 'antispam_max_event_count', 1 );
++
++		history_log_event_direct( $t_issue_id, 'summary', 'old', 'new', $t_user_id );
++
++		$this->assertTrue( auth_attempt_script_login( $t_username, 'password' ) );
++	}
++}
+diff --git a/tests/rest/RestIssueNotesTest.php b/tests/rest/RestIssueNotesTest.php
+index b52047779..b1481aea6 100644
+--- a/tests/rest/RestIssueNotesTest.php
++++ b/tests/rest/RestIssueNotesTest.php
+@@ -156,6 +156,34 @@ class RestIssueNotesTest extends RestBase
+ 		);
+ 	}
+ 
++	/**
++	 * A note with an invalid attachment is rejected before the note is added.
++	 */
++	public function testAddNoteWithInvalidAttachment() {
++		$this->createTestIssue();
++
++		$t_payload = $this->generateNoteData( 'Note with invalid attachment' );
++		$t_payload['files'] = [
++			[
++				'name' => "test.txt",
++				'content' => base64_encode( "Hello World" )
++			],
++			[
++				'name' => "image.svg",
++				'content' => base64_encode( "<svg/>" )
++			],
++		];
++		$t_response = $this->addNote( $t_payload );
++		$this->assertEquals( HTTP_STATUS_BAD_REQUEST, $t_response->getStatusCode(),
++			"Creating a note with a file type that is not allowed should fail"
++		);
++
++		$t_response = $this->builder()->get( '/issues/' . $this->issueId )->send();
++		$t_issue = json_decode( $t_response->getBody(), true )['issues'][0];
++		$this->assertArrayNotHasKey( 'notes', $t_issue, "No note should be added" );
++		$this->assertArrayNotHasKey( 'attachments', $t_issue, "No file should be added" );
++	}
++
+ 	public function testDeleteNote() {
+ 		$this->createTestIssue();
+ 
+diff --git a/tests/rest/RestIssueTest.php b/tests/rest/RestIssueTest.php
+index c2dff1f4f..db856604e 100644
+--- a/tests/rest/RestIssueTest.php
++++ b/tests/rest/RestIssueTest.php
+@@ -120,6 +120,49 @@ class RestIssueTest extends RestBase {
+ 		$this->deleteIssueAfterRun( $t_issue['id'] );
+ 	}
+ 
++	/**
++	 * Files attached when an issue is created are checked before the issue
++	 * is created.
++	 */
++	public function testCreateIssueWithInvalidFiles() {
++		$t_cases = array(
++			'type not allowed' => array( 'name' => 'image.svg', 'content' => base64_encode( 'svg' ) ),
++			'empty file' => array( 'name' => 'empty.txt', 'content' => '' ),
++			'empty name' => array( 'name' => '', 'content' => base64_encode( 'text' ) ),
++			'name too long' => array( 'name' => str_repeat( 'a', 300 ) . '.txt', 'content' => base64_encode( 'text' ) ),
++		);
++
++		foreach( $t_cases as $t_case => $t_file ) {
++			$t_issue_to_add = $this->getIssueToAdd( $t_case );
++			$t_issue_to_add['files'] = array( $t_file );
++
++			$t_response = $this->builder()->post( '/issues', $t_issue_to_add )->send();
++			if( $t_response->getStatusCode() == HTTP_STATUS_CREATED ) {
++				$t_body = json_decode( $t_response->getBody(), true );
++				$this->deleteIssueAfterRun( $t_body['issue']['id'] );
++			}
++			$this->assertEquals( HTTP_STATUS_BAD_REQUEST, $t_response->getStatusCode(), $t_case );
++		}
++	}
++
++	/**
++	 * A valid file is attached when an issue is created.
++	 */
++	public function testCreateIssueWithFile() {
++		$t_issue_to_add = $this->getIssueToAdd();
++		$t_issue_to_add['files'] = array(
++			array( 'name' => 'test.txt', 'content' => base64_encode( 'file content' ) ),
++		);
++
++		$t_response = $this->builder()->post( '/issues', $t_issue_to_add )->send();
++		$this->assertEquals( HTTP_STATUS_CREATED, $t_response->getStatusCode() );
++		$t_issue = json_decode( $t_response->getBody(), true )['issue'];
++		$this->deleteIssueAfterRun( $t_issue['id'] );
++
++		$this->assertCount( 1, $t_issue['attachments'] );
++		$this->assertEquals( 'test.txt', $t_issue['attachments'][0]['filename'] );
++	}
++
+ 	/**
+ 	 * Verify that REST issue updates enforce configured workflow transitions.
+ 	 *

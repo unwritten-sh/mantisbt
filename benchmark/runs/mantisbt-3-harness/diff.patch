@@ -1,0 +1,380 @@
+diff --git a/api/rest/mantisbt_openapi.yaml b/api/rest/mantisbt_openapi.yaml
+index 1dd1f258b..645c2d321 100644
+--- a/api/rest/mantisbt_openapi.yaml
++++ b/api/rest/mantisbt_openapi.yaml
+@@ -2674,9 +2674,6 @@ components:
+           type: string
+         handler:
+           $ref: '#/components/schemas/UserRef'
+-        status:
+-          type: integer
+-          enum: [0, 1]
+         enabled:
+           type: boolean
+     ProjectCategoriesUpdate:
+@@ -2686,9 +2683,6 @@ components:
+           type: string
+         handler:
+           $ref: '#/components/schemas/UserRef'
+-        status:
+-          type: integer
+-          enum: [0, 1]
+         enabled:
+           type: boolean
+     ProjectSubprojectsAdd:
+diff --git a/core/commands/CategoryAddCommand.php b/core/commands/CategoryAddCommand.php
+index 3153c9f75..ea92f2ae3 100644
+--- a/core/commands/CategoryAddCommand.php
++++ b/core/commands/CategoryAddCommand.php
+@@ -42,9 +42,12 @@ class CategoryAddCommand extends Command {
+ 	 *                         or the category name is invalid.
+ 	 */
+ 	function validate() {
+-		$this->project_id = helper_parse_id( $this->query( 'project_id' ), 'project_id' );
++		$t_project_id = $this->query( 'project_id' );
++		$this->project_id = is_numeric( $t_project_id ) && (int)$t_project_id === ALL_PROJECTS
++			? ALL_PROJECTS
++			: helper_parse_id( $t_project_id, 'project_id' );
+ 
+-		if( !project_exists( $this->project_id ) ) {
++		if( $this->project_id !== ALL_PROJECTS && !project_exists( $this->project_id ) ) {
+ 			throw new ClientException( "Project '$this->project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $this->project_id ] );
+ 		}
+ 		helper_set_current_project( $this->project_id );
+@@ -76,13 +79,10 @@ class CategoryAddCommand extends Command {
+ 	protected function process() {
+ 		$t_id = category_add( $this->project_id, $this->name );
+ 		category_cache_flush( $this->project_id );
+-		$t_status = $this->payload( 'status' );
+-		if( $t_status === null ) {
+-			$t_status = category_enabled_to_status( (bool)$this->payload( 'enabled', true ) );
+-		}
++		$t_status = category_enabled_to_status( (bool)$this->payload( 'enabled', true ) );
+ 
+-		if( $this->handler_id !== NO_USER || (int)$t_status !== CATEGORY_STATUS_ENABLED ) {
+-			category_update( $t_id, $this->name, $this->handler_id, (int)$t_status );
++		if( $this->handler_id !== NO_USER || $t_status !== CATEGORY_STATUS_ENABLED ) {
++			category_update( $t_id, $this->name, $this->handler_id, $t_status );
+ 		}
+ 
+ 		$t_data = [ 'query' => [ 'project_id' => $this->project_id, 'category_id' => $t_id ] ];
+diff --git a/core/commands/CategoryDeleteCommand.php b/core/commands/CategoryDeleteCommand.php
+index 4d911f0a4..26662db7f 100644
+--- a/core/commands/CategoryDeleteCommand.php
++++ b/core/commands/CategoryDeleteCommand.php
+@@ -37,8 +37,11 @@ class CategoryDeleteCommand extends Command {
+ 	 *                         is denied, or the category cannot be deleted.
+ 	 */
+ 	public function validate() {
+-		$this->project_id = helper_parse_id( $this->query( 'project_id' ), 'project_id' );
+-		if( !project_exists( $this->project_id ) ) {
++		$t_project_id = $this->query( 'project_id' );
++		$this->project_id = is_numeric( $t_project_id ) && (int)$t_project_id === ALL_PROJECTS
++			? ALL_PROJECTS
++			: helper_parse_id( $t_project_id, 'project_id' );
++		if( $this->project_id !== ALL_PROJECTS && !project_exists( $this->project_id ) ) {
+ 			throw new ClientException( "Project '$this->project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $this->project_id ] );
+ 		}
+ 		helper_set_current_project( $this->project_id );
+diff --git a/core/commands/CategoryUpdateCommand.php b/core/commands/CategoryUpdateCommand.php
+index 9432d7056..876a68b1d 100644
+--- a/core/commands/CategoryUpdateCommand.php
++++ b/core/commands/CategoryUpdateCommand.php
+@@ -44,8 +44,11 @@ class CategoryUpdateCommand extends Command {
+ 	 *                         access is denied.
+ 	 */
+ 	function validate() {
+-		$this->project_id = helper_parse_id( $this->query( 'project_id' ), 'project_id' );
+-		if( !project_exists( $this->project_id ) ) {
++		$t_project_id = $this->query( 'project_id' );
++		$this->project_id = is_numeric( $t_project_id ) && (int)$t_project_id === ALL_PROJECTS
++			? ALL_PROJECTS
++			: helper_parse_id( $t_project_id, 'project_id' );
++		if( $this->project_id !== ALL_PROJECTS && !project_exists( $this->project_id ) ) {
+ 			throw new ClientException( "Project '$this->project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $this->project_id ] );
+ 		}
+ 		helper_set_current_project( $this->project_id );
+@@ -88,16 +91,13 @@ class CategoryUpdateCommand extends Command {
+ 	 */
+ 	protected function process() {
+ 		$t_name = trim( (string)$this->payload( 'name', $this->old_category['name'] ) );
+-		$t_status = $this->payload( 'status' );
+-		if( $t_status === null ) {
+-			$t_enabled = $this->payload( 'enabled' );
+-			if( $t_enabled === null ) {
+-				$t_enabled = category_is_enabled( $this->category_id );
+-			}
+-			$t_status = category_enabled_to_status( $t_enabled );
++		$t_enabled = $this->payload( 'enabled' );
++		if( $t_enabled === null ) {
++			$t_enabled = category_is_enabled( $this->category_id );
+ 		}
++		$t_status = category_enabled_to_status( $t_enabled );
+ 
+-		category_update( $this->category_id, $t_name, $this->handler_id, (int)$t_status );
++		category_update( $this->category_id, $t_name, $this->handler_id, $t_status );
+ 
+ 		category_cache_flush( $this->project_id );
+ 
+diff --git a/docs/harness/log.md b/docs/harness/log.md
+index f53d2fc6e..f8de10f89 100644
+--- a/docs/harness/log.md
++++ b/docs/harness/log.md
+@@ -110,3 +110,9 @@ Risks seen before the harness:
+ - ci: npx -y uw-harness verify returned 404 from the npm registry on 2026-11-01 (package not published). The new harness.yml workflow will fail until uw-harness is published; it was not run on GitHub. Locally the check was run with the uw-harness source checkout and passed.
+ - local-env: PostgreSQL support (DB_TYPE=pgsql, compose profile pgsql) was written but not run. Only MySQL was verified. The full gate drops and reinstalls the local database each time, and needs host port 3306 free because the mysqli driver ignores other ports.
+ - full-gate: The full gate does not build the DocBook guides or the SOAP WSDL HTML (documentation.yml needs Publican and xsltproc, not available as composer/npm dependencies). Everything else from CI (lint, api:validate, api:generate, all four PHPUnit suites) is in composer run check.
++
++## 2026-11-02: global categories in category commands, REST ignores `status` (issue #32470)
++
++- Changed: `CategoryAddCommand`, `CategoryUpdateCommand` and `CategoryDeleteCommand` accept project id 0 (ALL_PROJECTS), with the same check as `CategoryGetCommand`. Delete rules did not change. The commands no longer read a `status` payload field: only `enabled` sets the category status. `status` was removed from the `ProjectCategoriesAdd` and `ProjectCategoriesUpdate` schemas in `api/rest/mantisbt_openapi.yaml`. Tests added in `tests/Mantis/CategoryCommandTest.php`, `tests/Mantis/CategoryDeleteCommandTest.php` and `tests/rest/RestProjectCategoryTest.php`.
++- Learned: no SOAP or UI caller passes `status` to the category commands. Only REST payloads could reach it, so removing it does not change SOAP. `helper_parse_id()` rejects 0, so ALL_PROJECTS must be checked before it is called. `CategoryGetCommand` uses `== ALL_PROJECTS`, which in PHP is also true for a null project id; the new code uses `is_numeric()` and a strict check instead. `composer run check` stops the web server when it ends, so to run REST tests with `--filter` after it, use `build/local_instance.sh test --filter ...`.
++- Left: `CategoryGetCommand` still treats a missing `project_id` as ALL_PROJECTS (loose comparison). Not changed here.
+diff --git a/tests/Mantis/CategoryCommandTest.php b/tests/Mantis/CategoryCommandTest.php
+index 17c205efb..bde6e7e40 100644
+--- a/tests/Mantis/CategoryCommandTest.php
++++ b/tests/Mantis/CategoryCommandTest.php
+@@ -198,6 +198,79 @@ class CategoryCommandTest extends MantisCoreBase {
+ 		}
+ 	}
+ 
++	/**
++	 * Test that a global category (ALL_PROJECTS) can be added and updated.
++	 *
++	 * @return void
++	 */
++	public function testAddAndUpdateGlobalCategory() {
++		self::login();
++		$t_name = 'command global category ' . rand( 1, 1000000 );
++
++		$t_data = [
++			'query' => [ 'project_id' => ALL_PROJECTS ],
++			'payload' => [ 'name' => $t_name ],
++		];
++		$t_command = new \CategoryAddCommand( $t_data );
++		$t_result = $t_command->execute();
++		$t_category_id = $t_result['category']['id'];
++
++		try {
++			$this->assertEquals( $t_name, $t_result['category']['name'] );
++			$this->assertEquals( ALL_PROJECTS, $t_result['category']['project']['id'] );
++			$this->assertTrue( $t_result['category']['enabled'] );
++			$this->assertEquals( ALL_PROJECTS, (int)category_get_field( $t_category_id, 'project_id' ) );
++
++			$t_data = [
++				'query' => [ 'project_id' => '0', 'category_id' => $t_category_id ],
++				'payload' => [ 'name' => $t_name . ' updated', 'enabled' => false ],
++			];
++			$t_command = new \CategoryUpdateCommand( $t_data );
++			$t_result = $t_command->execute();
++			$this->assertEquals( $t_name . ' updated', $t_result['category']['name'] );
++			$this->assertFalse( $t_result['category']['enabled'] );
++			$this->assertEquals( ALL_PROJECTS, $t_result['category']['project']['id'] );
++		} finally {
++			category_remove( $t_category_id );
++		}
++	}
++
++	/**
++	 * Test that the legacy status field is ignored on add and update.
++	 *
++	 * @return void
++	 */
++	public function testStatusPayloadIsIgnored() {
++		self::login();
++		$t_data = [
++			'query' => [ 'project_id' => 1 ],
++			'payload' => [
++				'name' => 'command status category ' . rand( 1, 1000000 ),
++				'status' => CATEGORY_STATUS_DISABLED,
++			],
++		];
++		$t_command = new \CategoryAddCommand( $t_data );
++		$t_result = $t_command->execute();
++		$t_category_id = $t_result['category']['id'];
++
++		try {
++			$this->assertTrue( $t_result['category']['enabled'] );
++			$this->assertArrayNotHasKey( 'status', $t_result['category'] );
++
++			$t_data = [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++				'payload' => [ 'status' => CATEGORY_STATUS_DISABLED ],
++			];
++			$t_command = new \CategoryUpdateCommand( $t_data );
++			$t_result = $t_command->execute();
++			$this->assertTrue( $t_result['category']['enabled'] );
++			$this->assertArrayNotHasKey( 'status', $t_result['category'] );
++			$this->assertTrue( category_is_enabled( $t_category_id ) );
++		} finally {
++			category_remove( $t_category_id );
++		}
++	}
++
+ 	/**
+ 	 * Assert that a command rejects an assigned user.
+ 	 *
+diff --git a/tests/Mantis/CategoryDeleteCommandTest.php b/tests/Mantis/CategoryDeleteCommandTest.php
+index 95f1c43e3..0f42f6dc6 100644
+--- a/tests/Mantis/CategoryDeleteCommandTest.php
++++ b/tests/Mantis/CategoryDeleteCommandTest.php
+@@ -63,4 +63,93 @@ class CategoryDeleteCommandTest extends MantisCoreBase {
+ 			category_remove( $t_category_id );
+ 		}
+ 	}
++
++	/**
++	 * Test that a global category (ALL_PROJECTS) can be deleted.
++	 *
++	 * @return void
++	 */
++	public function testDeleteGlobalCategory() {
++		self::login();
++		$t_category_id = category_add( ALL_PROJECTS, 'command global delete category ' . rand( 1, 1000000 ) );
++
++		try {
++			$t_data = [ 'query' => [
++				'project_id' => ALL_PROJECTS,
++				'category_id' => $t_category_id,
++			] ];
++			$t_command = new \CategoryDeleteCommand( $t_data );
++			$t_command->execute();
++
++			$this->assertFalse( category_exists( $t_category_id ) );
++		} finally {
++			if( category_exists( $t_category_id ) ) {
++				category_remove( $t_category_id );
++			}
++		}
++	}
++
++	/**
++	 * Test that the default category cannot be deleted when it is global.
++	 *
++	 * @return void
++	 */
++	public function testCannotDeleteGlobalDefaultCategory() {
++		self::login();
++		$t_category_id = category_add( ALL_PROJECTS, 'command global default category ' . rand( 1, 1000000 ) );
++		$t_had_database_value = config_is_set_in_database( 'default_category_for_moves', ALL_USERS, ALL_PROJECTS );
++		$t_old_value = config_get( 'default_category_for_moves', null, ALL_USERS, ALL_PROJECTS );
++		config_set( 'default_category_for_moves', $t_category_id, ALL_USERS, ALL_PROJECTS );
++
++		try {
++			$t_data = [ 'query' => [
++				'project_id' => ALL_PROJECTS,
++				'category_id' => $t_category_id,
++			] ];
++			$t_command = new \CategoryDeleteCommand( $t_data );
++			try {
++				$t_command->execute();
++				$this->fail( 'The default category must not be deleted.' );
++			} catch( ClientException $e ) {
++				$this->assertEquals( ERROR_CATEGORY_CANNOT_UPDATE_DEFAULT, $e->getCode() );
++			}
++
++			$this->assertTrue( category_exists( $t_category_id ) );
++		} finally {
++			if( $t_had_database_value ) {
++				config_set( 'default_category_for_moves', $t_old_value, ALL_USERS, ALL_PROJECTS );
++			} else {
++				config_delete( 'default_category_for_moves', ALL_USERS, ALL_PROJECTS );
++			}
++			category_remove( $t_category_id );
++		}
++	}
++
++	/**
++	 * Test that a category of a project cannot be deleted through ALL_PROJECTS.
++	 *
++	 * @return void
++	 */
++	public function testCannotDeleteProjectCategoryThroughAllProjects() {
++		self::login();
++		$t_category_id = category_add( 1, 'command project category ' . rand( 1, 1000000 ) );
++
++		try {
++			$t_data = [ 'query' => [
++				'project_id' => ALL_PROJECTS,
++				'category_id' => $t_category_id,
++			] ];
++			$t_command = new \CategoryDeleteCommand( $t_data );
++			try {
++				$t_command->execute();
++				$this->fail( 'A project category must not be found in ALL_PROJECTS.' );
++			} catch( ClientException $e ) {
++				$this->assertEquals( ERROR_CATEGORY_NOT_FOUND, $e->getCode() );
++			}
++
++			$this->assertTrue( category_exists( $t_category_id ) );
++		} finally {
++			category_remove( $t_category_id );
++		}
++	}
+ }
+diff --git a/tests/rest/RestProjectCategoryTest.php b/tests/rest/RestProjectCategoryTest.php
+index 4c8dbbbd1..1476c1867 100644
+--- a/tests/rest/RestProjectCategoryTest.php
++++ b/tests/rest/RestProjectCategoryTest.php
+@@ -178,6 +178,61 @@ class RestProjectCategoryTest extends RestBase {
+ 		$this->deleteCategory( $t_category['id'] );
+ 	}
+ 
++	/**
++	 * Test that the SOAP-only status field is ignored by the REST API.
++	 *
++	 * @return void
++	 */
++	public function testProjectCategoryStatusIsIgnored() {
++		$t_category = $this->createCategory( [
++			'name' => 'REST status category ' . rand( 1, 1000000 ),
++			'status' => CATEGORY_STATUS_DISABLED,
++		] );
++		$this->assertTrue( $t_category['enabled'] );
++		$this->assertArrayNotHasKey( 'status', $t_category );
++
++		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [
++			'status' => CATEGORY_STATUS_DISABLED,
++		] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_updated = json_decode( $t_response->getBody(), true )['category'];
++		$this->assertTrue( $t_updated['enabled'] );
++		$this->assertEquals( $t_category['name'], $t_updated['name'] );
++		$this->assertArrayNotHasKey( 'status', $t_updated );
++
++		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [
++			'enabled' => false,
++			'status' => CATEGORY_STATUS_ENABLED,
++		] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$this->assertFalse( json_decode( $t_response->getBody(), true )['category']['enabled'] );
++
++		$this->deleteCategory( $t_category['id'] );
++	}
++
++	/**
++	 * Test creating, updating and deleting a global category (ALL_PROJECTS).
++	 *
++	 * @return void
++	 */
++	public function testGlobalCategoryCrud() {
++		$this->base_url = '/projects/' . ALL_PROJECTS . '/categories/';
++		$t_name = 'REST global category ' . rand( 1, 1000000 );
++		$t_category = $this->createCategory( [ 'name' => $t_name ] );
++		$this->assertEquals( ALL_PROJECTS, $t_category['project']['id'] );
++		$this->assertTrue( $t_category['enabled'] );
++
++		$t_id = $t_category['id'];
++		$t_response = $this->builder()->patch( $this->base_url . $t_id, [ 'name' => $t_name . ' updated' ] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_category = json_decode( $t_response->getBody(), true )['category'];
++		$this->assertEquals( $t_name . ' updated', $t_category['name'] );
++		$this->assertEquals( ALL_PROJECTS, $t_category['project']['id'] );
++
++		$this->deleteCategory( $t_id );
++		$this->assertEquals( HTTP_STATUS_NOT_FOUND, $this->builder()->get( $this->base_url . $t_id )->send()->getStatusCode() );
++	}
++
+ 	/**
+ 	 * Test that assigned users must exist when adding or updating categories.
+ 	 *

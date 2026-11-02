@@ -1,0 +1,122 @@
+{
+  "task": "mantisbt-2",
+  "arm": "control",
+  "start": "7a70842e17017b67a6410617c813dc8c40986ad2",
+  "seconds": 398,
+  "result": {
+    "status": "done",
+    "summary": "The category API now uses a `handler` field for the default handler, the same shape as the rest of the REST API. Create, update and read all work with it, and the full test suite passes (752 tests, 0 failures).\n\nWhat changed:\n- **Add and update** take `handler` as `{\"id\": n}` or `{\"name\": \"...\"}`. A new helper, `category_resolve_handler()` in `core/category_api.php`, turns this into a user id.\n- **Clearing:** on update, `\"handler\": null` clears the handler. If the key is missing, the handler stays as it is. On add, a missing or null handler means no handler.\n- **Not found:** an unknown id or name gives 404.\n- **Bad format:** a plain integer, an empty object, or an invalid id or name gives 400. This is a new error case.\n- **Existing rules:** the handler must still be an enabled user who can handle issues. An unchanged invalid handler is still not checked again, so it does not block other updates.\n- **Get** returns the handler under `handler`. The key is left out when there is no handler or when the user has no manage project access.\n- **SOAP:** `mc_project_rename_category_by_name` keeps its integer `p_assigned_to` parameter, so the WSDL is unchanged. It maps 0 or an empty value to no handler, and any other value to `{id}`.\n- **Web pages:** `manage_proj_cat_update.php` sends `handler`. The three pages that read the old `default_handler` key now read `handler`.\n- **OpenAPI:** the add and update request bodies document a nullable `handler` object. I added `Category`, `CategoryCollection` and `CategoryResponse` schemas and listed them in the shared Success and Created responses. The file passes `redocly lint`; the 3 warnings left were there before.\n- **Backward compatibility:** the old `assigned_to` request key is no longer read and is silently ignored.\n\nTo run the REST and SOAP tests, I started a temporary MySQL 8.0 container and a PHP server on port 8989, the same way CI does. I added the CI data to the database, plus an API token that matches the existing `tests/bootstrap.php`. I removed the container and stopped the server afterwards. Nothing was committed.",
+    "changes": [
+      {
+        "path": "core/category_api.php",
+        "summary": "New category_resolve_handler() that turns a {id}/{name}/null reference into a user id; validation error messages now say 'handler'."
+      },
+      {
+        "path": "core/commands/CategoryAddCommand.php",
+        "summary": "Reads `handler` instead of `assigned_to`, resolves and validates it."
+      },
+      {
+        "path": "core/commands/CategoryUpdateCommand.php",
+        "summary": "Reads `handler`: missing key keeps the handler, null clears it, an unchanged handler is not validated again."
+      },
+      {
+        "path": "core/commands/CategoryGetCommand.php",
+        "summary": "Returns the handler under `handler` instead of `default_handler`."
+      },
+      {
+        "path": "api/soap/mc_project_api.php",
+        "summary": "mc_project_rename_category_by_name maps the integer assigned_to to a `handler` payload (0 means null)."
+      },
+      {
+        "path": "manage_proj_cat_update.php",
+        "summary": "Sends `handler` ({id} or null) to CategoryUpdateCommand."
+      },
+      {
+        "path": "manage_proj_cat_edit_page.php",
+        "summary": "Reads `handler` from the category get result."
+      },
+      {
+        "path": "manage_proj_edit_page.php",
+        "summary": "Reads `handler` from the category get result."
+      },
+      {
+        "path": "manage_proj_page.php",
+        "summary": "Reads `handler` from the category get result."
+      },
+      {
+        "path": "api/rest/mantisbt_openapi.yaml",
+        "summary": "Request schemas use a nullable `handler` object; added Category, CategoryCollection and CategoryResponse schemas and listed them in the Success and Created responses."
+      },
+      {
+        "path": "tests/Mantis/CategoryCommandTest.php",
+        "summary": "Existing tests moved to `handler`; new tests for add by id or name, add with no or null handler, update set/keep/clear, not-found codes (and their 404 mapping), and badly formed references."
+      },
+      {
+        "path": "tests/rest/RestProjectCategoryTest.php",
+        "summary": "Existing tests moved to `handler`; new tests for 404 by id or name, 400 for an integer handler, set by name, null clear, and handler hidden from anonymous users."
+      },
+      {
+        "path": "tests/soap/CategoryTest.php",
+        "summary": "New test: renaming a category with a user id sets the handler and with 0 clears it."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "Categories can be created, updated and read with the `handler` field as described (id or name, null clears on update, 404 for a missing user, enabled-user rule, unchanged invalid handler does not block updates, get uses the `handler` key and hides it when there is none or the user has no manage access)",
+        "met": true,
+        "evidence": "CategoryCommandTest (testAddWithHandler, testAddWithoutHandler, testUpdateHandler, testHandlerMustExist, testHandlerMustBeUserReference, testAssignedUserMustBeEnabled, testUpdateAllowsUnchangedInvalidHandler) and RestProjectCategoryTest (testProjectCategoryHandlerByNameAndClear, testProjectCategoryHandlerMustExist, testProjectCategoryHandlerHiddenWithoutManageAccess) all pass: `phpunit --filter Category` gives OK (33 tests, 192 assertions)."
+      },
+      {
+        "criterion": "Callers (SOAP, category and project management pages) and the OpenAPI description are updated",
+        "met": true,
+        "evidence": "grep finds no `default_handler` and no `'assigned_to' =>` payload left outside lang files. The SOAP test testRenameCategorySetsHandler passes. `redocly lint` reports the file valid; the 3 warnings left were there before."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "New core, REST and SOAP tests are listed above; existing category tests were moved to the new field."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "Full `vendor/bin/phpunit` against a local MySQL 8.0 and PHP server set up like CI: OK (752 tests, 2625 assertions)."
+      }
+    ],
+    "human_needed": [
+      {
+        "question": "Should the old `assigned_to` request field still be accepted for a while (marked deprecated), or rejected with an error, instead of being silently ignored?",
+        "why": "Clients that still send `assigned_to` now get a success response, but the handler is not set. I followed the issue, which asks to replace the field."
+      },
+      {
+        "question": "Should the SOAP WSDL for mc_project_rename_category_by_name change to take a user reference instead of an integer?",
+        "why": "I kept the SOAP contract unchanged (integer, 0 = none) to avoid breaking SOAP clients; only the internal call to the command changed."
+      }
+    ],
+    "harness_used": [
+      ".github/workflows/mantisbt.yml (CI steps to install MantisBT, start the PHP server and run phpunit)",
+      "build/ci_install_mantis.sh and build/ci_post_install.sh (installer call, test project, anonymous user and API token)",
+      "Existing config/config_inc.php and tests/bootstrap.php (DB credentials, REST/SOAP host and token)",
+      "phpunit.xml and vendor/bin/phpunit",
+      "npm script api:validate (redocly lint) for the OpenAPI file",
+      "Local Docker image mysql:8.0"
+    ],
+    "harness_gaps": [
+      {
+        "file": null,
+        "problem": "No running database or web server, and no script to start them locally. I had to rebuild the CI setup by hand: a MySQL container, the installer call, the post-install SQL, and an API token row that matches the token already in tests/bootstrap.php."
+      },
+      {
+        "file": "build/ci_install_mantis.sh",
+        "problem": "It uses `declare -A`, which needs bash 4. It does not run with the default bash 3.2 on macOS, so I called the installer with curl directly."
+      },
+      {
+        "file": null,
+        "problem": "There is no CLAUDE.md, AGENTS.md or contributor note for agents about how to run the REST/SOAP test suites locally, or about the API conventions (user reference shape, error code to HTTP status mapping)."
+      },
+      {
+        "file": "api/rest/mantisbt_openapi.yaml",
+        "problem": "Before this change, the spec had no schema for category responses, so the response shape was not documented."
+      }
+    ]
+  }
+}

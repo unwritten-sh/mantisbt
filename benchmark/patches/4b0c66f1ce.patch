@@ -1,0 +1,444 @@
+diff --git a/api/rest/mantisbt_openapi.yaml b/api/rest/mantisbt_openapi.yaml
+index 645c2d321..9a82cd1d8 100644
+--- a/api/rest/mantisbt_openapi.yaml
++++ b/api/rest/mantisbt_openapi.yaml
+@@ -2294,33 +2294,6 @@ components:
+           type: array
+           items:
+             $ref: '#/components/schemas/Project'
+-    ProjectCategory:
+-      type: object
+-      properties:
+-        id:
+-          type: integer
+-        name:
+-          type: string
+-        project:
+-          $ref: '#/components/schemas/ProjectRef'
+-        handler:
+-          $ref: '#/components/schemas/UserRef'
+-        enabled:
+-          type: boolean
+-    ProjectCategoryCollection:
+-      type: object
+-      required: [categories]
+-      properties:
+-        categories:
+-          type: array
+-          items:
+-            $ref: '#/components/schemas/ProjectCategory'
+-    ProjectCategoryResponse:
+-      type: object
+-      required: [category]
+-      properties:
+-        category:
+-          $ref: '#/components/schemas/ProjectCategory'
+     ProjectResponse:
+       type: object
+       required: [project]
+@@ -2672,8 +2645,8 @@ components:
+       properties:
+         name:
+           type: string
+-        handler:
+-          $ref: '#/components/schemas/UserRef'
++        assigned_to:
++          type: integer
+         enabled:
+           type: boolean
+     ProjectCategoriesUpdate:
+@@ -2681,8 +2654,8 @@ components:
+       properties:
+         name:
+           type: string
+-        handler:
+-          $ref: '#/components/schemas/UserRef'
++        assigned_to:
++          type: integer
+         enabled:
+           type: boolean
+     ProjectSubprojectsAdd:
+@@ -2968,8 +2941,6 @@ components:
+               - $ref: '#/components/schemas/IssueNoteResponse'
+               - $ref: '#/components/schemas/UserResponse'
+               - $ref: '#/components/schemas/ProjectResponse'
+-              - $ref: '#/components/schemas/ProjectCategoryResponse'
+-              - $ref: '#/components/schemas/ProjectCategoryCollection'
+               - $ref: '#/components/schemas/VersionResponse'
+               - $ref: '#/components/schemas/TokenResponse'
+               - $ref: '#/components/schemas/ConfigResponse'
+@@ -3033,8 +3004,6 @@ components:
+               - $ref: '#/components/schemas/UserResponse'
+               - $ref: '#/components/schemas/ProjectCollection'
+               - $ref: '#/components/schemas/ProjectResponse'
+-              - $ref: '#/components/schemas/ProjectCategoryResponse'
+-              - $ref: '#/components/schemas/ProjectCategoryCollection'
+               - $ref: '#/components/schemas/VersionResponse'
+               - $ref: '#/components/schemas/TokenResponse'
+               - $ref: '#/components/schemas/ConfigResponse'
+diff --git a/api/soap/mc_project_api.php b/api/soap/mc_project_api.php
+index 8d1f93845..9622632a8 100644
+--- a/api/soap/mc_project_api.php
++++ b/api/soap/mc_project_api.php
+@@ -365,7 +365,7 @@ function mc_project_rename_category_by_name( $p_username, $p_password, $p_projec
+ 		],
+ 		'payload' => [
+ 			'name' => $p_category_name_new,
+-			'handler' => (int)$p_assigned_to === NO_USER ? null : [ 'id' => (int)$p_assigned_to ],
++			'assigned_to' => (int)$p_assigned_to,
+ 		],
+ 	];
+ 	$t_command = new CategoryUpdateCommand( $t_data );
+@@ -869,13 +869,6 @@ function mci_project_categories( $p_project_id ) {
+ 	$t_data = [ 'query' => [ 'project_id' => $p_project_id ] ];
+ 	$t_command = new CategoryGetCommand( $t_data );
+ 	$t_result = $t_command->execute();
+-	foreach( $t_result['categories'] as &$t_category ) {
+-		if( isset( $t_category['handler'] ) ) {
+-			$t_category['default_handler'] = $t_category['handler'];
+-			unset( $t_category['handler'] );
+-		}
+-	}
+-	unset( $t_category );
+ 
+ 	return $t_result['categories'];
+ }
+diff --git a/core/commands/CategoryAddCommand.php b/core/commands/CategoryAddCommand.php
+index 542bc92ec..2637ca9f8 100644
+--- a/core/commands/CategoryAddCommand.php
++++ b/core/commands/CategoryAddCommand.php
+@@ -18,9 +18,6 @@ require_api( 'category_api.php' );
+ require_api( 'constant_inc.php' );
+ require_api( 'helper_api.php' );
+ 
+-global $g_absolute_path;
+-require_once( $g_absolute_path . 'api/soap/mc_core.php' );
+-
+ use Mantis\Exceptions\ClientException;
+ 
+ /**
+@@ -31,8 +28,6 @@ class CategoryAddCommand extends Command {
+ 	private $project_id;
+ 	/** @var string */
+ 	private $name;
+-	/** @var int */
+-	private $handler_id;
+ 
+ 	/**
+ 	 * Validate the project and category name.
+@@ -64,9 +59,7 @@ class CategoryAddCommand extends Command {
+ 			throw new ClientException( 'Category name is not unique', ERROR_CATEGORY_DUPLICATE, [ 'name' ] );
+ 		}
+ 
+-		$t_handler = $this->payload( 'handler' );
+-		$this->handler_id = $t_handler === null ? NO_USER : mci_get_user_id( $t_handler, null );
+-		category_validate_assigned_to( $this->handler_id, $this->project_id );
++		category_validate_assigned_to( $this->payload( 'assigned_to', NO_USER ), $this->project_id );
+ 	}
+ 
+ 	/**
+@@ -77,10 +70,11 @@ class CategoryAddCommand extends Command {
+ 	protected function process() {
+ 		$t_id = category_add( $this->project_id, $this->name );
+ 		category_cache_flush( $this->project_id );
++		$t_assigned_to = (int)$this->payload( 'assigned_to', NO_USER );
+ 		$t_enabled = (bool)$this->payload( 'enabled', true );
+ 
+-		if( $this->handler_id !== NO_USER || !$t_enabled ) {
+-			category_update( $t_id, $this->name, $this->handler_id, category_enabled_to_status( $t_enabled ) );
++		if( $t_assigned_to !== NO_USER || !$t_enabled ) {
++			category_update( $t_id, $this->name, $t_assigned_to, category_enabled_to_status( $t_enabled ) );
+ 		}
+ 
+ 		$t_data = [ 'query' => [ 'project_id' => $this->project_id, 'category_id' => $t_id ] ];
+diff --git a/core/commands/CategoryGetCommand.php b/core/commands/CategoryGetCommand.php
+index d5d297d30..57e873b09 100644
+--- a/core/commands/CategoryGetCommand.php
++++ b/core/commands/CategoryGetCommand.php
+@@ -98,7 +98,7 @@ class CategoryGetCommand extends Command {
+ 		);
+ 
+ 		if( (int)$p_row['user_id'] !== NO_USER && access_has_project_level( $t_manage_project_threshold, $p_row['project_id'] ) ) {
+-			$t_category['handler'] = user_exists( (int)$p_row['user_id'] )
++			$t_category['default_handler'] = user_exists( (int)$p_row['user_id'] )
+ 				? mci_account_get_array_by_id( (int)$p_row['user_id'] )
+ 				: [ 'id' => (int)$p_row['user_id'] ];
+ 		}
+diff --git a/core/commands/CategoryUpdateCommand.php b/core/commands/CategoryUpdateCommand.php
+index 03c9147ed..bf6f3ec4c 100644
+--- a/core/commands/CategoryUpdateCommand.php
++++ b/core/commands/CategoryUpdateCommand.php
+@@ -18,9 +18,6 @@ require_api( 'category_api.php' );
+ require_api( 'constant_inc.php' );
+ require_api( 'helper_api.php' );
+ 
+-global $g_absolute_path;
+-require_once( $g_absolute_path . 'api/soap/mc_core.php' );
+-
+ use Mantis\Exceptions\ClientException;
+ 
+ /**
+@@ -33,8 +30,6 @@ class CategoryUpdateCommand extends Command {
+ 	private $category_id;
+ 	/** @var array */
+ 	private $old_category;
+-	/** @var int */
+-	private $handler_id;
+ 
+ 	/**
+ 	 * Validate the project, category, and update authorization.
+@@ -71,14 +66,11 @@ class CategoryUpdateCommand extends Command {
+ 			throw new ClientException( 'Category name is not unique', ERROR_CATEGORY_DUPLICATE, [ 'name' ] );
+ 		}
+ 
+-		if( array_key_exists( 'handler', $this->data['payload'] ) ) {
+-			$t_handler = $this->payload( 'handler' );
+-			$this->handler_id = $t_handler === null ? NO_USER : mci_get_user_id( $t_handler, null );
+-			if( (int)$this->handler_id !== (int)$this->old_category['user_id'] ) {
+-				category_validate_assigned_to( $this->handler_id, $this->project_id );
+-			}
+-		} else {
+-			$this->handler_id = (int)$this->old_category['user_id'];
++		$t_assigned_to = $this->payload( 'assigned_to' );
++		if( $t_assigned_to !== null
++			&& ( !is_numeric( $t_assigned_to ) || (int)$t_assigned_to !== (int)$this->old_category['user_id'] )
++		) {
++			category_validate_assigned_to( $t_assigned_to, $this->project_id );
+ 		}
+ 	}
+ 
+@@ -89,13 +81,14 @@ class CategoryUpdateCommand extends Command {
+ 	 */
+ 	protected function process() {
+ 		$t_name = trim( (string)$this->payload( 'name', $this->old_category['name'] ) );
++		$t_assigned_to = (int)$this->payload( 'assigned_to', $this->old_category['user_id'] );
+ 		$t_enabled = $this->payload( 'enabled' );
+ 		if( $t_enabled === null ) {
+ 			$t_enabled = category_is_enabled( $this->category_id );
+ 		}
+ 
+ 		$t_status = category_enabled_to_status( $t_enabled );
+-		category_update( $this->category_id, $t_name, $this->handler_id, $t_status );
++		category_update( $this->category_id, $t_name, $t_assigned_to, $t_status );
+ 
+ 		category_cache_flush( $this->project_id );
+ 
+diff --git a/manage_proj_cat_edit_page.php b/manage_proj_cat_edit_page.php
+index df0be185c..e8434e2f6 100644
+--- a/manage_proj_cat_edit_page.php
++++ b/manage_proj_cat_edit_page.php
+@@ -63,8 +63,8 @@ $t_data = [
+ $t_command = new CategoryGetCommand( $t_data );
+ $t_result = $t_command->execute();
+ $t_category = $t_result['categories'][0];
+-$t_handler_id = isset( $t_category['handler'] )
+-	? (int)$t_category['handler']['id']
++$t_assigned_to = isset( $t_category['default_handler'] )
++	? (int)$t_category['default_handler']['id']
+ 	: NO_USER;
+ $t_project_id = (int)$t_category['project']['id'];
+ $t_name = $t_category['name'];
+@@ -125,7 +125,7 @@ print_manage_menu( 'manage_proj_cat_edit_page.php' );
+ 				<td>
+ 					<select id="proj-category-assigned-to" name="assigned_to" class="input-sm">
+ 						<option value="0"></option>
+-						<?php print_assign_to_option_list( $t_handler_id, $t_project_id ) ?>
++						<?php print_assign_to_option_list( $t_assigned_to, $t_project_id ) ?>
+ 					</select>
+ 				</td>
+ 			</tr>
+diff --git a/manage_proj_cat_update.php b/manage_proj_cat_update.php
+index 009ae898c..5a8487553 100644
+--- a/manage_proj_cat_update.php
++++ b/manage_proj_cat_update.php
+@@ -60,7 +60,7 @@ auth_reauthenticate();
+ 
+ $f_category_id     = gpc_get_int( 'category_id' );
+ $f_name            = trim( gpc_get_string( 'name' ) );
+-$f_handler_id      = gpc_get_int( 'assigned_to', 0 );
++$f_assigned_to     = gpc_get_int( 'assigned_to', 0 );
+ $f_enabled         = gpc_get_bool( 'enabled' );
+ 
+ if( is_blank( $f_name ) ) {
+@@ -81,7 +81,7 @@ $t_data = [
+ 	],
+ 	'payload' => [
+ 		'name' => $f_name,
+-		'handler' => $f_handler_id == NO_USER ? null : [ 'id' => $f_handler_id ],
++		'assigned_to' => $f_assigned_to,
+ 		'enabled' => $f_enabled,
+ 	],
+ ];
+diff --git a/manage_proj_edit_page.php b/manage_proj_edit_page.php
+index c17569ea0..4f3f90a0b 100644
+--- a/manage_proj_edit_page.php
++++ b/manage_proj_edit_page.php
+@@ -476,8 +476,8 @@ print_manage_menu( 'manage_proj_edit_page.php' );
+ 		foreach ( $t_categories as $t_category ) {
+ 			$t_id = $t_category['id'];
+ 			$t_inherited = ( $t_category['project']['id'] != $f_project_id );
+-			$t_handler_id = isset( $t_category['handler'] )
+-				? $t_category['handler']['id']
++			$t_handler_id = isset( $t_category['default_handler'] )
++				? $t_category['default_handler']['id']
+ 				: NO_USER;
+ ?>
+ 			<tr>
+diff --git a/manage_proj_page.php b/manage_proj_page.php
+index ea574d151..bab702cd8 100644
+--- a/manage_proj_page.php
++++ b/manage_proj_page.php
+@@ -259,8 +259,8 @@ print_manage_menu( 'manage_proj_page.php' );
+ <?php
+ 			foreach( $t_categories as $t_category ) {
+ 				$t_id = $t_category['id'];
+-				$t_handler_id = isset( $t_category['handler'] )
+-					? $t_category['handler']['id']
++				$t_handler_id = isset( $t_category['default_handler'] )
++					? $t_category['default_handler']['id']
+ 					: NO_USER;
+ ?>
+ 			<tr>
+diff --git a/tests/Mantis/CategoryCommandTest.php b/tests/Mantis/CategoryCommandTest.php
+index e23d03b5d..760cb349e 100644
+--- a/tests/Mantis/CategoryCommandTest.php
++++ b/tests/Mantis/CategoryCommandTest.php
+@@ -109,7 +109,7 @@ class CategoryCommandTest extends MantisCoreBase {
+ 				'query' => [ 'project_id' => 1, 'category_id' => $t_disabled_category_id ],
+ 				'payload' => [
+ 					'name' => 'disabled stale category updated',
+-					'handler' => [ 'id' => $t_user_id ],
++					'assigned_to' => $t_user_id,
+ 				],
+ 			];
+ 			$t_command = new \CategoryUpdateCommand( $t_data );
+@@ -133,14 +133,14 @@ class CategoryCommandTest extends MantisCoreBase {
+ 				'query' => [ 'project_id' => 1, 'category_id' => $t_deleted_category_id ],
+ 				'payload' => [
+ 					'name' => 'deleted stale category updated',
+-					'handler' => [ 'id' => $t_deleted_user_id ],
++					'assigned_to' => $t_deleted_user_id,
+ 				],
+ 			];
+ 			$t_command = new \CategoryUpdateCommand( $t_data );
+ 			$t_result = $t_command->execute();
+ 			$t_category = $t_result['category'];
+ 			$this->assertEquals( 'deleted stale category updated', $t_category['name'] );
+-			$this->assertEquals( $t_deleted_user_id, $t_category['handler']['id'] );
++			$this->assertEquals( $t_deleted_user_id, $t_category['default_handler']['id'] );
+ 		} finally {
+ 			category_remove( $t_deleted_category_id );
+ 		}
+@@ -202,7 +202,7 @@ class CategoryCommandTest extends MantisCoreBase {
+ 				'query' => [ 'project_id' => 1 ],
+ 				'payload' => [
+ 					'name' => 'command disabled handler ' . rand( 1, 1000000 ),
+-					'handler' => [ 'id' => $t_user_id ],
++					'assigned_to' => $t_user_id,
+ 				],
+ 			];
+ 			$t_command = new \CategoryAddCommand( $t_data );
+@@ -210,7 +210,7 @@ class CategoryCommandTest extends MantisCoreBase {
+ 
+ 			$t_data = [
+ 				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
+-				'payload' => [ 'handler' => [ 'id' => $t_user_id ] ],
++				'payload' => [ 'assigned_to' => $t_user_id ],
+ 			];
+ 			$t_command = new \CategoryUpdateCommand( $t_data );
+ 			$this->assertAssignedUserRejected( $t_command );
+diff --git a/tests/rest/RestProjectCategoryTest.php b/tests/rest/RestProjectCategoryTest.php
+index 6ff0601e9..0f3bdbbae 100644
+--- a/tests/rest/RestProjectCategoryTest.php
++++ b/tests/rest/RestProjectCategoryTest.php
+@@ -115,65 +115,27 @@ class RestProjectCategoryTest extends RestBase {
+ 	}
+ 
+ 	/**
+-	 * Test that category handlers are hidden without manage project access.
++	 * Test category assigned user and status fields through add and update.
+ 	 *
+ 	 * @return void
+ 	 */
+-	public function testProjectCategoryHandlerRequiresManageAccess() {
+-		$t_category = $this->createCategory( [
+-			'name' => 'REST hidden handler category ' . rand( 1, 1000000 ),
+-			'handler' => [ 'id' => $this->userId ],
+-		] );
+-		$t_project_id = $this->getProjectId();
+-		$t_had_database_value = config_is_set_in_database( 'manage_project_threshold', ALL_USERS, $t_project_id );
+-		$t_old_value = config_get( 'manage_project_threshold', null, ALL_USERS, $t_project_id );
+-		config_set( 'manage_project_threshold', NOBODY, ALL_USERS, $t_project_id );
+-
+-		try {
+-			$t_response = $this->builder()->get( $this->base_url . $t_category['id'] )->send();
+-			$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
+-			$t_category = json_decode( $t_response->getBody(), true )['categories'][0];
+-			$this->assertArrayNotHasKey( 'handler', $t_category );
+-		} finally {
+-			if( $t_had_database_value ) {
+-				config_set( 'manage_project_threshold', $t_old_value, ALL_USERS, $t_project_id );
+-			} else {
+-				config_delete( 'manage_project_threshold', ALL_USERS, $t_project_id );
+-			}
+-			$this->deleteCategory( $t_category['id'] );
+-		}
+-	}
+-
+-	/**
+-	 * Test category handler and enabled fields through add and update.
+-	 *
+-	 * @return void
+-	 */
+-	public function testProjectCategoryHandlerAndEnabledFields() {
++	public function testProjectCategoryAssignedAndStatusFields() {
+ 		$t_category = $this->createCategory( [
+ 			'name' => 'REST assigned category ' . rand( 1, 1000000 ),
+-			'handler' => [ 'id' => $this->userId ],
++			'assigned_to' => $this->userId,
+ 			'enabled' => false,
+ 		] );
+ 		$this->assertFalse( $t_category['enabled'] );
+ 		$this->assertArrayNotHasKey( 'status', $t_category );
+-		$this->assertEquals( $this->userId, $t_category['handler']['id'] );
++		$this->assertEquals( $this->userId, $t_category['default_handler']['id'] );
+ 
+-		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [
+-			'handler' => [ 'name' => $this->userName ],
+-			'enabled' => true,
+-		] )->send();
++		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'enabled' => true ] )->send();
+ 		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
+ 		$t_category = json_decode( $t_response->getBody(), true )['category'];
+ 		$this->assertTrue( $t_category['enabled'] );
+ 		$this->assertArrayNotHasKey( 'status', $t_category );
+ 		$this->assertEquals( $this->getProjectId(), $t_category['project']['id'] );
+-		$this->assertEquals( $this->userId, $t_category['handler']['id'] );
+-
+-		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'handler' => null ] )->send();
+-		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
+-		$t_category = json_decode( $t_response->getBody(), true )['category'];
+-		$this->assertArrayNotHasKey( 'handler', $t_category );
++		$this->assertEquals( $this->userId, $t_category['default_handler']['id'] );
+ 
+ 		$this->deleteCategory( $t_category['id'] );
+ 	}
+@@ -209,15 +171,15 @@ class RestProjectCategoryTest extends RestBase {
+ 	 *
+ 	 * @return void
+ 	 */
+-	public function testProjectCategoryHandlerMustExist() {
++	public function testProjectCategoryAssignedToMustExist() {
+ 		$t_response = $this->builder()->post( $this->base_url, [
+ 			'name' => 'REST invalid handler ' . rand( 1, 1000000 ),
+-			'handler' => [ 'id' => 1000000 ],
++			'assigned_to' => 1000000,
+ 		] )->send();
+ 		$this->assertEquals( HTTP_STATUS_NOT_FOUND, $t_response->getStatusCode() );
+ 
+ 		$t_category = $this->createCategory( [ 'name' => 'REST update handler ' . rand( 1, 1000000 ) ] );
+-		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'handler' => [ 'id' => 1000000 ] ] )->send();
++		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'assigned_to' => 1000000 ] )->send();
+ 		$this->assertEquals( HTTP_STATUS_NOT_FOUND, $t_response->getStatusCode() );
+ 
+ 		$this->deleteCategory( $t_category['id'] );

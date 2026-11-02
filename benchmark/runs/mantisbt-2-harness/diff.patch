@@ -1,0 +1,639 @@
+diff --git a/api/rest/mantisbt_openapi.yaml b/api/rest/mantisbt_openapi.yaml
+index 9a82cd1d8..ce17d8cfd 100644
+--- a/api/rest/mantisbt_openapi.yaml
++++ b/api/rest/mantisbt_openapi.yaml
+@@ -1111,6 +1111,9 @@ paths:
+     get:
+       summary: Get a project category
+       operationId: ProjectCategoriesGet
++      description: >-
++        Each category has `id`, `name`, `project` and `enabled`. The `handler` (a user reference)
++        is included only when the category has a default handler and the caller has manage project access.
+       tags: ['Project Categories']
+       responses:
+         '200': { $ref: '#/components/responses/Success' }
+@@ -1147,6 +1150,9 @@ paths:
+     get:
+       summary: Get project categories
+       operationId: ProjectCategoriesGetAll
++      description: >-
++        Each category has `id`, `name`, `project` and `enabled`. The `handler` (a user reference)
++        is included only when the category has a default handler and the caller has manage project access.
+       tags: ['Project Categories']
+       responses:
+         '200': { $ref: '#/components/responses/Success' }
+@@ -2645,8 +2651,12 @@ components:
+       properties:
+         name:
+           type: string
+-        assigned_to:
+-          type: integer
++        handler:
++          description: >-
++            User that new issues of this category are assigned to, by `id` or `name`.
++            The user must exist (404 otherwise), be enabled and be allowed to handle issues.
++          allOf:
++            - $ref: '#/components/schemas/UserRef'
+         enabled:
+           type: boolean
+     ProjectCategoriesUpdate:
+@@ -2654,8 +2664,15 @@ components:
+       properties:
+         name:
+           type: string
+-        assigned_to:
+-          type: integer
++        handler:
++          description: >-
++            User that new issues of this category are assigned to, by `id` or `name`.
++            Leave it out to keep the current handler, set it to `null` to clear it.
++            The user must exist (404 otherwise), be enabled and be allowed to handle issues.
++          type: object
++          nullable: true
++          allOf:
++            - $ref: '#/components/schemas/UserRef'
+         enabled:
+           type: boolean
+     ProjectSubprojectsAdd:
+diff --git a/api/soap/mc_project_api.php b/api/soap/mc_project_api.php
+index 9622632a8..ef4e77fab 100644
+--- a/api/soap/mc_project_api.php
++++ b/api/soap/mc_project_api.php
+@@ -358,6 +358,7 @@ function mc_project_rename_category_by_name( $p_username, $p_password, $p_projec
+ 	}
+ 
+ 	$t_category_id = category_get_id_by_name( $p_category_name, $p_project_id );
++	$t_handler_id = (int)$p_assigned_to;
+ 	$t_data = [
+ 		'query' => [
+ 			'project_id' => $p_project_id,
+@@ -365,7 +366,7 @@ function mc_project_rename_category_by_name( $p_username, $p_password, $p_projec
+ 		],
+ 		'payload' => [
+ 			'name' => $p_category_name_new,
+-			'assigned_to' => (int)$p_assigned_to,
++			'handler' => $t_handler_id === NO_USER ? null : [ 'id' => $t_handler_id ],
+ 		],
+ 	];
+ 	$t_command = new CategoryUpdateCommand( $t_data );
+diff --git a/core/category_api.php b/core/category_api.php
+index 184e85e4a..85a074772 100644
+--- a/core/category_api.php
++++ b/core/category_api.php
+@@ -160,6 +160,48 @@ function category_validate_assigned_to( $p_assigned_to, $p_project_id ) {
+ 	}
+ }
+ 
++/**
++ * Resolve the category handler of a command payload to a user id.
++ *
++ * The handler is a user reference: an array with 'id' or 'name', for
++ * example [ 'id' => 5 ] or [ 'name' => 'john' ]. Null (or id 0) means no
++ * handler. The user is not checked here: call category_validate_assigned_to()
++ * on the result. A user name that does not exist throws a not found error.
++ *
++ * @param mixed $p_handler User reference, or null.
++ *
++ * @return int User identifier, or NO_USER.
++ * @throws ClientException If the reference is invalid or the user name is not found.
++ */
++function category_handler_to_user_id( $p_handler ) {
++	if( $p_handler === null ) {
++		return NO_USER;
++	}
++
++	if( !is_array( $p_handler ) ) {
++		throw new ClientException( "'handler' must be an object with 'id' or 'name'",
++			ERROR_INVALID_FIELD_VALUE,
++			[ 'handler' ]
++		);
++	}
++
++	if( isset( $p_handler['id'] ) && !is_numeric( $p_handler['id'] ) ) {
++		throw new ClientException( "'handler' id must be a valid user identifier",
++			ERROR_INVALID_FIELD_VALUE,
++			[ 'handler' ]
++		);
++	}
++
++	if( !isset( $p_handler['id'] ) && ( !isset( $p_handler['name'] ) || !is_string( $p_handler['name'] ) ) ) {
++		throw new ClientException( "'handler' must be an object with 'id' or 'name'",
++			ERROR_INVALID_FIELD_VALUE,
++			[ 'handler' ]
++		);
++	}
++
++	return (int)user_get_id_by_user_info( $p_handler, /* throw if id not found */ false, /* allow all users */ true );
++}
++
+ /**
+  * Check whether the category is unique within a project
+  * @param integer $p_project_id A project identifier.
+diff --git a/core/commands/CategoryAddCommand.php b/core/commands/CategoryAddCommand.php
+index 2637ca9f8..6fbf733bd 100644
+--- a/core/commands/CategoryAddCommand.php
++++ b/core/commands/CategoryAddCommand.php
+@@ -28,6 +28,8 @@ class CategoryAddCommand extends Command {
+ 	private $project_id;
+ 	/** @var string */
+ 	private $name;
++	/** @var int */
++	private $handler_id = NO_USER;
+ 
+ 	/**
+ 	 * Validate the project and category name.
+@@ -59,7 +61,8 @@ class CategoryAddCommand extends Command {
+ 			throw new ClientException( 'Category name is not unique', ERROR_CATEGORY_DUPLICATE, [ 'name' ] );
+ 		}
+ 
+-		category_validate_assigned_to( $this->payload( 'assigned_to', NO_USER ), $this->project_id );
++		$this->handler_id = category_handler_to_user_id( $this->payload( 'handler' ) );
++		category_validate_assigned_to( $this->handler_id, $this->project_id );
+ 	}
+ 
+ 	/**
+@@ -70,11 +73,10 @@ class CategoryAddCommand extends Command {
+ 	protected function process() {
+ 		$t_id = category_add( $this->project_id, $this->name );
+ 		category_cache_flush( $this->project_id );
+-		$t_assigned_to = (int)$this->payload( 'assigned_to', NO_USER );
+ 		$t_enabled = (bool)$this->payload( 'enabled', true );
+ 
+-		if( $t_assigned_to !== NO_USER || !$t_enabled ) {
+-			category_update( $t_id, $this->name, $t_assigned_to, category_enabled_to_status( $t_enabled ) );
++		if( $this->handler_id !== NO_USER || !$t_enabled ) {
++			category_update( $t_id, $this->name, $this->handler_id, category_enabled_to_status( $t_enabled ) );
+ 		}
+ 
+ 		$t_data = [ 'query' => [ 'project_id' => $this->project_id, 'category_id' => $t_id ] ];
+diff --git a/core/commands/CategoryGetCommand.php b/core/commands/CategoryGetCommand.php
+index 57e873b09..d5d297d30 100644
+--- a/core/commands/CategoryGetCommand.php
++++ b/core/commands/CategoryGetCommand.php
+@@ -98,7 +98,7 @@ class CategoryGetCommand extends Command {
+ 		);
+ 
+ 		if( (int)$p_row['user_id'] !== NO_USER && access_has_project_level( $t_manage_project_threshold, $p_row['project_id'] ) ) {
+-			$t_category['default_handler'] = user_exists( (int)$p_row['user_id'] )
++			$t_category['handler'] = user_exists( (int)$p_row['user_id'] )
+ 				? mci_account_get_array_by_id( (int)$p_row['user_id'] )
+ 				: [ 'id' => (int)$p_row['user_id'] ];
+ 		}
+diff --git a/core/commands/CategoryUpdateCommand.php b/core/commands/CategoryUpdateCommand.php
+index bf6f3ec4c..09dca4abe 100644
+--- a/core/commands/CategoryUpdateCommand.php
++++ b/core/commands/CategoryUpdateCommand.php
+@@ -30,6 +30,8 @@ class CategoryUpdateCommand extends Command {
+ 	private $category_id;
+ 	/** @var array */
+ 	private $old_category;
++	/** @var int */
++	private $handler_id;
+ 
+ 	/**
+ 	 * Validate the project, category, and update authorization.
+@@ -66,11 +68,16 @@ class CategoryUpdateCommand extends Command {
+ 			throw new ClientException( 'Category name is not unique', ERROR_CATEGORY_DUPLICATE, [ 'name' ] );
+ 		}
+ 
+-		$t_assigned_to = $this->payload( 'assigned_to' );
+-		if( $t_assigned_to !== null
+-			&& ( !is_numeric( $t_assigned_to ) || (int)$t_assigned_to !== (int)$this->old_category['user_id'] )
+-		) {
+-			category_validate_assigned_to( $t_assigned_to, $this->project_id );
++		# A missing 'handler' keeps the current handler, 'handler: null' clears it.
++		$this->handler_id = (int)$this->old_category['user_id'];
++		if( array_key_exists( 'handler', $this->data['payload'] ) ) {
++			$this->handler_id = category_handler_to_user_id( $this->payload( 'handler' ) );
++
++			# An unchanged handler is not validated again, so that an invalid
++			# handler (e.g. disabled or deleted user) does not block other updates.
++			if( $this->handler_id !== (int)$this->old_category['user_id'] ) {
++				category_validate_assigned_to( $this->handler_id, $this->project_id );
++			}
+ 		}
+ 	}
+ 
+@@ -81,14 +88,13 @@ class CategoryUpdateCommand extends Command {
+ 	 */
+ 	protected function process() {
+ 		$t_name = trim( (string)$this->payload( 'name', $this->old_category['name'] ) );
+-		$t_assigned_to = (int)$this->payload( 'assigned_to', $this->old_category['user_id'] );
+ 		$t_enabled = $this->payload( 'enabled' );
+ 		if( $t_enabled === null ) {
+ 			$t_enabled = category_is_enabled( $this->category_id );
+ 		}
+ 
+ 		$t_status = category_enabled_to_status( $t_enabled );
+-		category_update( $this->category_id, $t_name, $t_assigned_to, $t_status );
++		category_update( $this->category_id, $t_name, $this->handler_id, $t_status );
+ 
+ 		category_cache_flush( $this->project_id );
+ 
+diff --git a/docs/harness/log.md b/docs/harness/log.md
+index f53d2fc6e..31e208ff6 100644
+--- a/docs/harness/log.md
++++ b/docs/harness/log.md
+@@ -110,3 +110,22 @@ Risks seen before the harness:
+ - ci: npx -y uw-harness verify returned 404 from the npm registry on 2026-11-01 (package not published). The new harness.yml workflow will fail until uw-harness is published; it was not run on GitHub. Locally the check was run with the uw-harness source checkout and passed.
+ - local-env: PostgreSQL support (DB_TYPE=pgsql, compose profile pgsql) was written but not run. Only MySQL was verified. The full gate drops and reinstalls the local database each time, and needs host port 3306 free because the mysqli driver ignores other ports.
+ - full-gate: The full gate does not build the DocBook guides or the SOAP WSDL HTML (documentation.yml needs Publican and xsltproc, not available as composer/npm dependencies). Everything else from CI (lint, api:validate, api:generate, all four PHPUnit suites) is in composer run check.
++
++## 2026-11-01: Category handler as a user reference (issue #32470)
++
++**Changed**
++
++- `CategoryAddCommand` and `CategoryUpdateCommand` take `handler` (`{"id": n}` or `{"name": "x"}`) instead of the integer `assigned_to`. On update, a missing `handler` keeps the current one and `"handler": null` clears it. New helper `category_handler_to_user_id()` in `core/category_api.php`.
++- `CategoryGetCommand` returns `handler` instead of `default_handler`.
++- Callers updated: SOAP `mc_project_rename_category_by_name()`, `manage_proj_cat_update.php`, `manage_proj_cat_edit_page.php`, `manage_proj_page.php`, `manage_proj_edit_page.php`. OpenAPI request schemas and GET descriptions updated.
++- Tests: `tests/Mantis/CategoryCommandTest.php`, `tests/rest/RestProjectCategoryTest.php`.
++
++**Learned**
++
++- `Command::payload()` uses `isset()`, so it cannot tell a missing key from an explicit `null`. Use `array_key_exists( 'x', $this->data['payload'] )` when `null` has a meaning.
++- After `composer run check` the PHP web server is stopped. To run the `rest` or `soap` tests alone afterwards, start `build/local_instance.sh serve` again.
++- redocly rule `nullable-type-sibling`: a `nullable: true` property with `allOf` also needs `type: object`.
++
++**Left**
++
++- The old `assigned_to` request field is no longer read (it is ignored, not rejected). If REST clients of a released version use it, a deprecation path may be needed.
+diff --git a/manage_proj_cat_edit_page.php b/manage_proj_cat_edit_page.php
+index e8434e2f6..b8d3af7b3 100644
+--- a/manage_proj_cat_edit_page.php
++++ b/manage_proj_cat_edit_page.php
+@@ -63,8 +63,8 @@ $t_data = [
+ $t_command = new CategoryGetCommand( $t_data );
+ $t_result = $t_command->execute();
+ $t_category = $t_result['categories'][0];
+-$t_assigned_to = isset( $t_category['default_handler'] )
+-	? (int)$t_category['default_handler']['id']
++$t_assigned_to = isset( $t_category['handler'] )
++	? (int)$t_category['handler']['id']
+ 	: NO_USER;
+ $t_project_id = (int)$t_category['project']['id'];
+ $t_name = $t_category['name'];
+diff --git a/manage_proj_cat_update.php b/manage_proj_cat_update.php
+index 5a8487553..48afc3b7d 100644
+--- a/manage_proj_cat_update.php
++++ b/manage_proj_cat_update.php
+@@ -81,7 +81,7 @@ $t_data = [
+ 	],
+ 	'payload' => [
+ 		'name' => $f_name,
+-		'assigned_to' => $f_assigned_to,
++		'handler' => $f_assigned_to === NO_USER ? null : [ 'id' => $f_assigned_to ],
+ 		'enabled' => $f_enabled,
+ 	],
+ ];
+diff --git a/manage_proj_edit_page.php b/manage_proj_edit_page.php
+index 4f3f90a0b..c17569ea0 100644
+--- a/manage_proj_edit_page.php
++++ b/manage_proj_edit_page.php
+@@ -476,8 +476,8 @@ print_manage_menu( 'manage_proj_edit_page.php' );
+ 		foreach ( $t_categories as $t_category ) {
+ 			$t_id = $t_category['id'];
+ 			$t_inherited = ( $t_category['project']['id'] != $f_project_id );
+-			$t_handler_id = isset( $t_category['default_handler'] )
+-				? $t_category['default_handler']['id']
++			$t_handler_id = isset( $t_category['handler'] )
++				? $t_category['handler']['id']
+ 				: NO_USER;
+ ?>
+ 			<tr>
+diff --git a/manage_proj_page.php b/manage_proj_page.php
+index bab702cd8..ea574d151 100644
+--- a/manage_proj_page.php
++++ b/manage_proj_page.php
+@@ -259,8 +259,8 @@ print_manage_menu( 'manage_proj_page.php' );
+ <?php
+ 			foreach( $t_categories as $t_category ) {
+ 				$t_id = $t_category['id'];
+-				$t_handler_id = isset( $t_category['default_handler'] )
+-					? $t_category['default_handler']['id']
++				$t_handler_id = isset( $t_category['handler'] )
++					? $t_category['handler']['id']
+ 					: NO_USER;
+ ?>
+ 			<tr>
+diff --git a/tests/Mantis/CategoryCommandTest.php b/tests/Mantis/CategoryCommandTest.php
+index 760cb349e..117c6725e 100644
+--- a/tests/Mantis/CategoryCommandTest.php
++++ b/tests/Mantis/CategoryCommandTest.php
+@@ -109,7 +109,7 @@ class CategoryCommandTest extends MantisCoreBase {
+ 				'query' => [ 'project_id' => 1, 'category_id' => $t_disabled_category_id ],
+ 				'payload' => [
+ 					'name' => 'disabled stale category updated',
+-					'assigned_to' => $t_user_id,
++					'handler' => [ 'id' => $t_user_id ],
+ 				],
+ 			];
+ 			$t_command = new \CategoryUpdateCommand( $t_data );
+@@ -133,14 +133,14 @@ class CategoryCommandTest extends MantisCoreBase {
+ 				'query' => [ 'project_id' => 1, 'category_id' => $t_deleted_category_id ],
+ 				'payload' => [
+ 					'name' => 'deleted stale category updated',
+-					'assigned_to' => $t_deleted_user_id,
++					'handler' => [ 'id' => $t_deleted_user_id ],
+ 				],
+ 			];
+ 			$t_command = new \CategoryUpdateCommand( $t_data );
+ 			$t_result = $t_command->execute();
+ 			$t_category = $t_result['category'];
+ 			$this->assertEquals( 'deleted stale category updated', $t_category['name'] );
+-			$this->assertEquals( $t_deleted_user_id, $t_category['default_handler']['id'] );
++			$this->assertEquals( $t_deleted_user_id, $t_category['handler']['id'] );
+ 		} finally {
+ 			category_remove( $t_deleted_category_id );
+ 		}
+@@ -202,7 +202,7 @@ class CategoryCommandTest extends MantisCoreBase {
+ 				'query' => [ 'project_id' => 1 ],
+ 				'payload' => [
+ 					'name' => 'command disabled handler ' . rand( 1, 1000000 ),
+-					'assigned_to' => $t_user_id,
++					'handler' => [ 'id' => $t_user_id ],
+ 				],
+ 			];
+ 			$t_command = new \CategoryAddCommand( $t_data );
+@@ -210,7 +210,7 @@ class CategoryCommandTest extends MantisCoreBase {
+ 
+ 			$t_data = [
+ 				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
+-				'payload' => [ 'assigned_to' => $t_user_id ],
++				'payload' => [ 'handler' => [ 'name' => $t_username ] ],
+ 			];
+ 			$t_command = new \CategoryUpdateCommand( $t_data );
+ 			$this->assertAssignedUserRejected( $t_command );
+@@ -220,6 +220,147 @@ class CategoryCommandTest extends MantisCoreBase {
+ 		}
+ 	}
+ 
++	/**
++	 * Test add, get and update of the category handler with user references.
++	 *
++	 * @return void
++	 */
++	public function testHandlerAsUserReference() {
++		self::login();
++		$t_handle_bug_threshold = config_get( 'handle_bug_threshold', null, null, 1 );
++		$t_username = 'category_ref_handler_' . rand( 1, 1000000 );
++		user_create( $t_username, 'password', $t_username . '@localhost.localdomain', $t_handle_bug_threshold, false, true );
++		$t_user_id = user_get_id_by_name( $t_username );
++		$t_category_id = null;
++
++		try {
++			$t_command = new \CategoryAddCommand( [
++				'query' => [ 'project_id' => 1 ],
++				'payload' => [
++					'name' => 'command ref handler ' . rand( 1, 1000000 ),
++					'handler' => [ 'name' => $t_username ],
++				],
++			] );
++			$t_category = $t_command->execute()['category'];
++			$t_category_id = $t_category['id'];
++			$this->assertEquals( $t_user_id, $t_category['handler']['id'] );
++			$this->assertEquals( $t_username, $t_category['handler']['name'] );
++			$this->assertArrayNotHasKey( 'default_handler', $t_category );
++			$this->assertEquals( $t_user_id, (int)category_get_field( $t_category_id, 'user_id' ) );
++
++			# Get returns the handler under 'handler'
++			$t_command = new \CategoryGetCommand( [ 'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ] ] );
++			$t_category = $t_command->execute()['categories'][0];
++			$this->assertEquals( $t_user_id, $t_category['handler']['id'] );
++
++			# Missing handler on update keeps the current one
++			$t_command = new \CategoryUpdateCommand( [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++				'payload' => [ 'enabled' => false ],
++			] );
++			$t_category = $t_command->execute()['category'];
++			$this->assertEquals( $t_user_id, $t_category['handler']['id'] );
++
++			# Null handler on update clears it
++			$t_command = new \CategoryUpdateCommand( [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++				'payload' => [ 'handler' => null ],
++			] );
++			$t_category = $t_command->execute()['category'];
++			$this->assertArrayNotHasKey( 'handler', $t_category );
++			$this->assertEquals( NO_USER, (int)category_get_field( $t_category_id, 'user_id' ) );
++
++			# Set by id
++			$t_command = new \CategoryUpdateCommand( [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++				'payload' => [ 'handler' => [ 'id' => $t_user_id ] ],
++			] );
++			$t_category = $t_command->execute()['category'];
++			$this->assertEquals( $t_user_id, $t_category['handler']['id'] );
++		} finally {
++			if( $t_category_id !== null ) {
++				category_remove( $t_category_id );
++			}
++			user_delete( $t_user_id );
++		}
++	}
++
++	/**
++	 * Test that the handler is hidden from users without manage project access.
++	 *
++	 * @return void
++	 */
++	public function testHandlerHiddenWithoutManageAccess() {
++		self::login();
++		$t_category_id = category_add( 1, 'command hidden handler ' . rand( 1, 1000000 ) );
++		category_update( $t_category_id, category_get_name( $t_category_id ), auth_get_current_user_id() );
++		category_cache_flush( 1 );
++
++		$t_manage_threshold = config_get( 'manage_project_threshold', null, null, 1 );
++		$t_username = 'category_viewer_' . rand( 1, 1000000 );
++		user_create( $t_username, 'password', $t_username . '@localhost.localdomain', REPORTER, false, true );
++		$t_user_id = user_get_id_by_name( $t_username );
++
++		try {
++			$this->assertLessThan( $t_manage_threshold, REPORTER );
++			$this->assertTrue( auth_attempt_script_login( $t_username, 'password' ) );
++			$t_command = new \CategoryGetCommand( [ 'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ] ] );
++			$t_category = $t_command->execute()['categories'][0];
++			$this->assertEquals( $t_category_id, $t_category['id'] );
++			$this->assertArrayNotHasKey( 'handler', $t_category );
++			$this->assertArrayNotHasKey( 'default_handler', $t_category );
++		} finally {
++			self::login();
++			category_remove( $t_category_id );
++			user_delete( $t_user_id );
++		}
++	}
++
++	/**
++	 * Test that unknown handlers give a not found error and invalid ones a bad request.
++	 *
++	 * @return void
++	 */
++	public function testHandlerNotFoundOrInvalid() {
++		self::login();
++		$t_category_id = category_add( 1, 'command unknown handler ' . rand( 1, 1000000 ) );
++		$t_unknown_name = 'category_no_such_user_' . rand( 1, 1000000 );
++
++		$t_cases = [
++			[ [ 'id' => 1000000 ], ERROR_USER_BY_ID_NOT_FOUND ],
++			[ [ 'name' => $t_unknown_name ], ERROR_USER_BY_NAME_NOT_FOUND ],
++			[ 1, ERROR_INVALID_FIELD_VALUE ],
++			[ [ 'id' => 'abc' ], ERROR_INVALID_FIELD_VALUE ],
++			[ [], ERROR_INVALID_FIELD_VALUE ],
++		];
++
++		try {
++			foreach( $t_cases as $t_case ) {
++				list( $t_handler, $t_expected_code ) = $t_case;
++				$t_commands = [
++					new \CategoryAddCommand( [
++						'query' => [ 'project_id' => 1 ],
++						'payload' => [ 'name' => 'command unknown add ' . rand( 1, 1000000 ), 'handler' => $t_handler ],
++					] ),
++					new \CategoryUpdateCommand( [
++						'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++						'payload' => [ 'handler' => $t_handler ],
++					] ),
++				];
++				foreach( $t_commands as $t_command ) {
++					try {
++						$t_command->execute();
++						$this->fail( 'Handler ' . json_encode( $t_handler ) . ' must be rejected.' );
++					} catch( ClientException $e ) {
++						$this->assertEquals( $t_expected_code, $e->getCode(), json_encode( $t_handler ) );
++					}
++				}
++			}
++		} finally {
++			category_remove( $t_category_id );
++		}
++	}
++
+ 	/**
+ 	 * Assert that a command rejects an assigned user.
+ 	 *
+diff --git a/tests/rest/RestProjectCategoryTest.php b/tests/rest/RestProjectCategoryTest.php
+index 0f3bdbbae..21009814a 100644
+--- a/tests/rest/RestProjectCategoryTest.php
++++ b/tests/rest/RestProjectCategoryTest.php
+@@ -115,19 +115,20 @@ class RestProjectCategoryTest extends RestBase {
+ 	}
+ 
+ 	/**
+-	 * Test category assigned user and status fields through add and update.
++	 * Test category handler and status fields through add and update.
+ 	 *
+ 	 * @return void
+ 	 */
+ 	public function testProjectCategoryAssignedAndStatusFields() {
+ 		$t_category = $this->createCategory( [
+ 			'name' => 'REST assigned category ' . rand( 1, 1000000 ),
+-			'assigned_to' => $this->userId,
++			'handler' => [ 'id' => $this->userId ],
+ 			'enabled' => false,
+ 		] );
+ 		$this->assertFalse( $t_category['enabled'] );
+ 		$this->assertArrayNotHasKey( 'status', $t_category );
+-		$this->assertEquals( $this->userId, $t_category['default_handler']['id'] );
++		$this->assertArrayNotHasKey( 'default_handler', $t_category );
++		$this->assertEquals( $this->userId, $t_category['handler']['id'] );
+ 
+ 		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'enabled' => true ] )->send();
+ 		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
+@@ -135,11 +136,61 @@ class RestProjectCategoryTest extends RestBase {
+ 		$this->assertTrue( $t_category['enabled'] );
+ 		$this->assertArrayNotHasKey( 'status', $t_category );
+ 		$this->assertEquals( $this->getProjectId(), $t_category['project']['id'] );
+-		$this->assertEquals( $this->userId, $t_category['default_handler']['id'] );
++		$this->assertEquals( $this->userId, $t_category['handler']['id'] );
+ 
+ 		$this->deleteCategory( $t_category['id'] );
+ 	}
+ 
++	/**
++	 * Test setting the handler by name, reading it back and clearing it with null.
++	 *
++	 * @return void
++	 */
++	public function testProjectCategoryHandlerByNameAndClear() {
++		$t_category = $this->createCategory( [ 'name' => 'REST handler category ' . rand( 1, 1000000 ) ] );
++		$this->assertArrayNotHasKey( 'handler', $t_category );
++		$t_url = $this->base_url . $t_category['id'];
++
++		$t_response = $this->builder()->patch( $t_url, [ 'handler' => [ 'name' => $this->userName ] ] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_updated = json_decode( $t_response->getBody(), true )['category'];
++		$this->assertEquals( $this->userId, $t_updated['handler']['id'] );
++		$this->assertEquals( $this->userName, $t_updated['handler']['name'] );
++
++		$t_response = $this->builder()->get( $t_url )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_read = json_decode( $t_response->getBody(), true )['categories'][0];
++		$this->assertEquals( $this->userId, $t_read['handler']['id'] );
++		$this->assertArrayNotHasKey( 'default_handler', $t_read );
++
++		# Updating another field keeps the handler
++		$t_response = $this->builder()->patch( $t_url, [ 'enabled' => true ] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$this->assertEquals( $this->userId, json_decode( $t_response->getBody(), true )['category']['handler']['id'] );
++
++		$t_response = $this->builder()->patch( $t_url, [ 'handler' => null ] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$this->assertArrayNotHasKey( 'handler', json_decode( $t_response->getBody(), true )['category'] );
++
++		$t_response = $this->builder()->get( $t_url )->send();
++		$this->assertArrayNotHasKey( 'handler', json_decode( $t_response->getBody(), true )['categories'][0] );
++
++		$this->deleteCategory( $t_category['id'] );
++	}
++
++	/**
++	 * Test that a handler that is not a user reference object is rejected.
++	 *
++	 * @return void
++	 */
++	public function testProjectCategoryHandlerMustBeObject() {
++		$t_response = $this->builder()->post( $this->base_url, [
++			'name' => 'REST scalar handler ' . rand( 1, 1000000 ),
++			'handler' => $this->userId,
++		] )->send();
++		$this->assertEquals( HTTP_STATUS_BAD_REQUEST, $t_response->getStatusCode() );
++	}
++
+ 	/**
+ 	 * Test that the REST API ignores the SOAP-only status field.
+ 	 *
+@@ -167,20 +218,25 @@ class RestProjectCategoryTest extends RestBase {
+ 	}
+ 
+ 	/**
+-	 * Test that assigned users must exist when adding or updating categories.
++	 * Test that handlers must exist when adding or updating categories.
+ 	 *
+ 	 * @return void
+ 	 */
+-	public function testProjectCategoryAssignedToMustExist() {
+-		$t_response = $this->builder()->post( $this->base_url, [
+-			'name' => 'REST invalid handler ' . rand( 1, 1000000 ),
+-			'assigned_to' => 1000000,
+-		] )->send();
+-		$this->assertEquals( HTTP_STATUS_NOT_FOUND, $t_response->getStatusCode() );
++	public function testProjectCategoryHandlerMustExist() {
++		$t_unknown_name = 'no_such_user_' . rand( 1, 1000000 );
++		foreach( [ [ 'id' => 1000000 ], [ 'name' => $t_unknown_name ] ] as $t_handler ) {
++			$t_response = $this->builder()->post( $this->base_url, [
++				'name' => 'REST invalid handler ' . rand( 1, 1000000 ),
++				'handler' => $t_handler,
++			] )->send();
++			$this->assertEquals( HTTP_STATUS_NOT_FOUND, $t_response->getStatusCode() );
++		}
+ 
+ 		$t_category = $this->createCategory( [ 'name' => 'REST update handler ' . rand( 1, 1000000 ) ] );
+-		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'assigned_to' => 1000000 ] )->send();
+-		$this->assertEquals( HTTP_STATUS_NOT_FOUND, $t_response->getStatusCode() );
++		foreach( [ [ 'id' => 1000000 ], [ 'name' => $t_unknown_name ] ] as $t_handler ) {
++			$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [ 'handler' => $t_handler ] )->send();
++			$this->assertEquals( HTTP_STATUS_NOT_FOUND, $t_response->getStatusCode() );
++		}
+ 
+ 		$this->deleteCategory( $t_category['id'] );
+ 	}

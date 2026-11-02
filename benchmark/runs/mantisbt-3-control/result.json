@@ -1,0 +1,84 @@
+{
+  "task": "mantisbt-3",
+  "arm": "control",
+  "start": "a091140e6bb9cf94427562f5fd4b06c56df8f3e9",
+  "seconds": 256,
+  "result": {
+    "status": "done",
+    "summary": "Both problems are fixed. Global categories (project id 0, ALL_PROJECTS) can now be added, updated and deleted through the category commands, and the REST API ignores the old `status` field. A new helper, `category_parse_project_id()` in core/category_api.php, accepts project id 0 and keeps the old checks for other values (not numeric, below 1, unknown project). The add, update and delete commands use it. The delete rules did not change. The default category still cannot be deleted, and a category used by issues still cannot be deleted without reassignment. Both rules are now also tested for global categories. A global category cannot be reached through a normal project id, and a project category cannot be reached through project id 0. The add and update commands no longer read a `status` payload. Only `enabled` controls the state, so a REST `status` is ignored: a new category stays enabled, and an update with only `status` changes nothing. Responses never had `status` and still do not. I removed `status` from the ProjectCategoriesAdd and ProjectCategoriesUpdate schemas in the OpenAPI file. SOAP does not change: it never sent `status` to these commands, and the SOAP tests pass. To run the suite I started a temporary MySQL 8.0 container and a PHP server on 127.0.0.1:8989, installed MantisBT with the steps from the CI workflow, and created a new API token in tests/bootstrap.php. Afterwards I removed the container, stopped the server and restored tests/bootstrap.php. Nothing was committed.",
+    "changes": [
+      {
+        "path": "core/category_api.php",
+        "summary": "Added category_parse_project_id(): accepts ALL_PROJECTS (0), otherwise uses helper_parse_id() and checks that the project exists."
+      },
+      {
+        "path": "core/commands/CategoryAddCommand.php",
+        "summary": "Uses category_parse_project_id() so global categories can be added; removed the `status` payload override, only `enabled` (default true) is used."
+      },
+      {
+        "path": "core/commands/CategoryUpdateCommand.php",
+        "summary": "Uses category_parse_project_id(); removed the `status` payload override, only `enabled` is used (unchanged if missing)."
+      },
+      {
+        "path": "core/commands/CategoryDeleteCommand.php",
+        "summary": "Uses category_parse_project_id() so global categories can be deleted (by id or name); delete rules unchanged."
+      },
+      {
+        "path": "api/rest/mantisbt_openapi.yaml",
+        "summary": "Removed `status` from the ProjectCategoriesAdd and ProjectCategoriesUpdate request schemas."
+      },
+      {
+        "path": "tests/Mantis/CategoryCommandTest.php",
+        "summary": "New tests: global add/update/delete, global delete by name, project/global boundary, invalid project ids still rejected, `status` payload ignored."
+      },
+      {
+        "path": "tests/Mantis/CategoryDeleteCommandTest.php",
+        "summary": "New tests: default global category cannot be deleted; global category with issues cannot be deleted without reassignment."
+      },
+      {
+        "path": "tests/rest/RestProjectCategoryTest.php",
+        "summary": "New tests: REST ignores `status` on add/update and never returns it; global category CRUD via /projects/0/categories."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "A global category can be added, updated and deleted through the commands, and REST ignores `status`",
+        "met": true,
+        "evidence": "CategoryCommandTest::testGlobalCategoryAddUpdateDelete, testGlobalCategoryDeleteByName and RestProjectCategoryTest::testGlobalCategoryCrud pass. CategoryCommandTest::testStatusFieldIsIgnored and RestProjectCategoryTest::testProjectCategoryStatusFieldIsIgnored pass: a new category stays enabled, an update with only `status` leaves it enabled, and no response contains `status`. The default-category rule still applies to global categories (testCannotDeleteDefaultGlobalCategory)."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "Added 7 command tests and 2 REST tests. With the original command files restored, 6 of the new command tests fail (2 errors, 4 failures). With the fix, they all pass."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "Full `vendor/bin/phpunit` (mantis, soap, rest, formatting suites) against a fresh MySQL 8.0 install: OK (750 tests, 2599 assertions). `redocly lint` validates the OpenAPI file. The 3 warnings it reports also exist on the original file."
+      }
+    ],
+    "human_needed": [],
+    "harness_used": [
+      "phpunit.xml and vendor/bin/phpunit (composer dependencies already installed)",
+      "The CI workflow in .github/workflows and build/ci_install_mantis.sh / build/ci_post_install.sh, used to rebuild the test database and seed data by hand",
+      "tests/ci_create_api_token.php to create the REST API token",
+      "Existing config/config_inc.php and tests/bootstrap.php (gitignored), already set for 127.0.0.1 MySQL and a PHP server on port 8989",
+      "node_modules/.bin/redocly to lint the OpenAPI file",
+      "Local Docker with a mysql:8.0 image"
+    ],
+    "harness_gaps": [
+      {
+        "file": "tests/bootstrap.php",
+        "problem": "It points to a database and API token that did not exist: no MySQL was running, and the stored token was no longer valid. I had to start MySQL, run the installer, add the seed data and create a new token by hand before any DB-backed test could run."
+      },
+      {
+        "file": null,
+        "problem": "There is no local script or documentation to set up the test environment (DB container, install, seed, token, PHP server). The steps exist only inside the GitHub Actions workflow, written for systemd and sudo on Ubuntu."
+      },
+      {
+        "file": null,
+        "problem": "The repository has no agent instructions (no CLAUDE.md or AGENTS.md) explaining how to run tests or which suites need a database or a web server."
+      }
+    ]
+  }
+}

@@ -1,0 +1,501 @@
+diff --git a/api/rest/mantisbt_openapi.yaml b/api/rest/mantisbt_openapi.yaml
+index 1dd1f258b..645c2d321 100644
+--- a/api/rest/mantisbt_openapi.yaml
++++ b/api/rest/mantisbt_openapi.yaml
+@@ -2674,9 +2674,6 @@ components:
+           type: string
+         handler:
+           $ref: '#/components/schemas/UserRef'
+-        status:
+-          type: integer
+-          enum: [0, 1]
+         enabled:
+           type: boolean
+     ProjectCategoriesUpdate:
+@@ -2686,9 +2683,6 @@ components:
+           type: string
+         handler:
+           $ref: '#/components/schemas/UserRef'
+-        status:
+-          type: integer
+-          enum: [0, 1]
+         enabled:
+           type: boolean
+     ProjectSubprojectsAdd:
+diff --git a/core/category_api.php b/core/category_api.php
+index 184e85e4a..40bad7b77 100644
+--- a/core/category_api.php
++++ b/core/category_api.php
+@@ -875,3 +875,25 @@ function category_enabled_to_status( $p_enabled ) {
+ function category_status_to_enabled( $p_status ) {
+ 	return (int)$p_status === CATEGORY_STATUS_ENABLED;
+ }
++
++/**
++ * Parse and validate the project id used by the category commands.
++ *
++ * ALL_PROJECTS (0) is accepted, to manage global categories.
++ *
++ * @param mixed $p_project_id The project id, as received by the command.
++ * @return int The project id.
++ * @throws ClientException If the project id is invalid or the project does not exist.
++ */
++function category_parse_project_id( $p_project_id ) {
++	if( is_numeric( $p_project_id ) && (int)$p_project_id === ALL_PROJECTS ) {
++		return ALL_PROJECTS;
++	}
++
++	$t_project_id = helper_parse_id( $p_project_id, 'project_id' );
++	if( !project_exists( $t_project_id ) ) {
++		throw new ClientException( "Project '$t_project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $t_project_id ] );
++	}
++
++	return $t_project_id;
++}
+diff --git a/core/commands/CategoryAddCommand.php b/core/commands/CategoryAddCommand.php
+index 3153c9f75..e95842a4e 100644
+--- a/core/commands/CategoryAddCommand.php
++++ b/core/commands/CategoryAddCommand.php
+@@ -42,11 +42,7 @@ class CategoryAddCommand extends Command {
+ 	 *                         or the category name is invalid.
+ 	 */
+ 	function validate() {
+-		$this->project_id = helper_parse_id( $this->query( 'project_id' ), 'project_id' );
+-
+-		if( !project_exists( $this->project_id ) ) {
+-			throw new ClientException( "Project '$this->project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $this->project_id ] );
+-		}
++		$this->project_id = category_parse_project_id( $this->query( 'project_id' ) );
+ 		helper_set_current_project( $this->project_id );
+ 
+ 		$t_manage_project_threshold = config_get( 'manage_project_threshold' );
+@@ -76,13 +72,10 @@ class CategoryAddCommand extends Command {
+ 	protected function process() {
+ 		$t_id = category_add( $this->project_id, $this->name );
+ 		category_cache_flush( $this->project_id );
+-		$t_status = $this->payload( 'status' );
+-		if( $t_status === null ) {
+-			$t_status = category_enabled_to_status( (bool)$this->payload( 'enabled', true ) );
+-		}
++		$t_status = category_enabled_to_status( (bool)$this->payload( 'enabled', true ) );
+ 
+-		if( $this->handler_id !== NO_USER || (int)$t_status !== CATEGORY_STATUS_ENABLED ) {
+-			category_update( $t_id, $this->name, $this->handler_id, (int)$t_status );
++		if( $this->handler_id !== NO_USER || $t_status !== CATEGORY_STATUS_ENABLED ) {
++			category_update( $t_id, $this->name, $this->handler_id, $t_status );
+ 		}
+ 
+ 		$t_data = [ 'query' => [ 'project_id' => $this->project_id, 'category_id' => $t_id ] ];
+diff --git a/core/commands/CategoryDeleteCommand.php b/core/commands/CategoryDeleteCommand.php
+index 4d911f0a4..1f44be019 100644
+--- a/core/commands/CategoryDeleteCommand.php
++++ b/core/commands/CategoryDeleteCommand.php
+@@ -37,10 +37,7 @@ class CategoryDeleteCommand extends Command {
+ 	 *                         is denied, or the category cannot be deleted.
+ 	 */
+ 	public function validate() {
+-		$this->project_id = helper_parse_id( $this->query( 'project_id' ), 'project_id' );
+-		if( !project_exists( $this->project_id ) ) {
+-			throw new ClientException( "Project '$this->project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $this->project_id ] );
+-		}
++		$this->project_id = category_parse_project_id( $this->query( 'project_id' ) );
+ 		helper_set_current_project( $this->project_id );
+ 
+ 		$t_manage_project_threshold = config_get( 'manage_project_threshold' );
+diff --git a/core/commands/CategoryUpdateCommand.php b/core/commands/CategoryUpdateCommand.php
+index 9432d7056..96b865535 100644
+--- a/core/commands/CategoryUpdateCommand.php
++++ b/core/commands/CategoryUpdateCommand.php
+@@ -44,10 +44,7 @@ class CategoryUpdateCommand extends Command {
+ 	 *                         access is denied.
+ 	 */
+ 	function validate() {
+-		$this->project_id = helper_parse_id( $this->query( 'project_id' ), 'project_id' );
+-		if( !project_exists( $this->project_id ) ) {
+-			throw new ClientException( "Project '$this->project_id' not found", ERROR_PROJECT_NOT_FOUND, [ $this->project_id ] );
+-		}
++		$this->project_id = category_parse_project_id( $this->query( 'project_id' ) );
+ 		helper_set_current_project( $this->project_id );
+ 
+ 		$t_manage_project_threshold = config_get( 'manage_project_threshold' );
+@@ -88,16 +85,13 @@ class CategoryUpdateCommand extends Command {
+ 	 */
+ 	protected function process() {
+ 		$t_name = trim( (string)$this->payload( 'name', $this->old_category['name'] ) );
+-		$t_status = $this->payload( 'status' );
+-		if( $t_status === null ) {
+-			$t_enabled = $this->payload( 'enabled' );
+-			if( $t_enabled === null ) {
+-				$t_enabled = category_is_enabled( $this->category_id );
+-			}
+-			$t_status = category_enabled_to_status( $t_enabled );
++		$t_enabled = $this->payload( 'enabled' );
++		if( $t_enabled === null ) {
++			$t_enabled = category_is_enabled( $this->category_id );
+ 		}
++		$t_status = category_enabled_to_status( (bool)$t_enabled );
+ 
+-		category_update( $this->category_id, $t_name, $this->handler_id, (int)$t_status );
++		category_update( $this->category_id, $t_name, $this->handler_id, $t_status );
+ 
+ 		category_cache_flush( $this->project_id );
+ 
+diff --git a/tests/Mantis/CategoryCommandTest.php b/tests/Mantis/CategoryCommandTest.php
+index 17c205efb..3f11f1e01 100644
+--- a/tests/Mantis/CategoryCommandTest.php
++++ b/tests/Mantis/CategoryCommandTest.php
+@@ -146,6 +146,200 @@ class CategoryCommandTest extends MantisCoreBase {
+ 		}
+ 	}
+ 
++	/**
++	 * Test that global categories (ALL_PROJECTS) can be added, updated and deleted.
++	 *
++	 * @return void
++	 */
++	public function testGlobalCategoryAddUpdateDelete() {
++		self::login();
++		$t_name = 'command global category ' . rand( 1, 1000000 );
++
++		$t_data = [
++			'query' => [ 'project_id' => ALL_PROJECTS ],
++			'payload' => [ 'name' => $t_name ],
++		];
++		$t_command = new \CategoryAddCommand( $t_data );
++		$t_result = $t_command->execute();
++		$t_category = $t_result['category'];
++		$t_category_id = $t_category['id'];
++
++		try {
++			$this->assertEquals( $t_name, $t_category['name'] );
++			$this->assertEquals( ALL_PROJECTS, $t_category['project']['id'] );
++			$this->assertTrue( $t_category['enabled'] );
++			$this->assertEquals( ALL_PROJECTS, (int)category_get_field( $t_category_id, 'project_id' ) );
++
++			$t_data = [
++				'query' => [ 'project_id' => '0', 'category_id' => $t_category_id ],
++				'payload' => [ 'name' => $t_name . ' updated', 'enabled' => false ],
++			];
++			$t_command = new \CategoryUpdateCommand( $t_data );
++			$t_result = $t_command->execute();
++			$this->assertEquals( $t_name . ' updated', $t_result['category']['name'] );
++			$this->assertFalse( $t_result['category']['enabled'] );
++			$this->assertFalse( category_is_enabled( $t_category_id ) );
++
++			$t_data = [ 'query' => [ 'project_id' => ALL_PROJECTS, 'category_id' => $t_category_id ] ];
++			$t_command = new \CategoryDeleteCommand( $t_data );
++			$t_command->execute();
++			$this->assertFalse( category_exists( $t_category_id ) );
++		} finally {
++			if( category_exists( $t_category_id ) ) {
++				category_remove( $t_category_id );
++			}
++		}
++	}
++
++	/**
++	 * Test that a global category can be deleted by name.
++	 *
++	 * @return void
++	 */
++	public function testGlobalCategoryDeleteByName() {
++		self::login();
++		$t_name = 'command global named category ' . rand( 1, 1000000 );
++		$t_category_id = category_add( ALL_PROJECTS, $t_name );
++
++		try {
++			$t_data = [ 'query' => [ 'project_id' => ALL_PROJECTS, 'category_name' => $t_name ] ];
++			$t_command = new \CategoryDeleteCommand( $t_data );
++			$t_command->execute();
++			$this->assertFalse( category_exists( $t_category_id ) );
++		} finally {
++			if( category_exists( $t_category_id ) ) {
++				category_remove( $t_category_id );
++			}
++		}
++	}
++
++	/**
++	 * Test that a global category is not found through a project, and the reverse.
++	 *
++	 * @return void
++	 */
++	public function testGlobalCategoryProjectBoundary() {
++		self::login();
++		$t_global_id = category_add( ALL_PROJECTS, 'command boundary global ' . rand( 1, 1000000 ) );
++		$t_project_id = category_add( 1, 'command boundary project ' . rand( 1, 1000000 ) );
++
++		try {
++			$this->assertCategoryNotFound( new \CategoryUpdateCommand( [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_global_id ],
++				'payload' => [ 'name' => 'should fail ' . rand( 1, 1000000 ) ],
++			] ) );
++			$this->assertCategoryNotFound( new \CategoryDeleteCommand( [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_global_id ],
++			] ) );
++			$this->assertCategoryNotFound( new \CategoryUpdateCommand( [
++				'query' => [ 'project_id' => ALL_PROJECTS, 'category_id' => $t_project_id ],
++				'payload' => [ 'name' => 'should fail ' . rand( 1, 1000000 ) ],
++			] ) );
++			$this->assertCategoryNotFound( new \CategoryDeleteCommand( [
++				'query' => [ 'project_id' => ALL_PROJECTS, 'category_id' => $t_project_id ],
++			] ) );
++			$this->assertTrue( category_exists( $t_global_id ) );
++			$this->assertTrue( category_exists( $t_project_id ) );
++		} finally {
++			category_remove( $t_global_id );
++			category_remove( $t_project_id );
++		}
++	}
++
++	/**
++	 * Test that invalid or unknown project ids are still rejected.
++	 *
++	 * @return void
++	 */
++	public function testInvalidProjectIdRejected() {
++		self::login();
++		foreach( [ null, '', -1, 'abc' ] as $t_project_id ) {
++			try {
++				$t_command = new \CategoryAddCommand( [
++					'query' => [ 'project_id' => $t_project_id ],
++					'payload' => [ 'name' => 'should fail ' . rand( 1, 1000000 ) ],
++				] );
++				$t_command->execute();
++				$this->fail( 'Project id ' . var_export( $t_project_id, true ) . ' must be rejected.' );
++			} catch( ClientException $e ) {
++				$this->assertContains( $e->getCode(), [ ERROR_GPC_VAR_NOT_FOUND, ERROR_INVALID_FIELD_VALUE ] );
++			}
++		}
++
++		try {
++			$t_command = new \CategoryAddCommand( [
++				'query' => [ 'project_id' => 1000000 ],
++				'payload' => [ 'name' => 'should fail ' . rand( 1, 1000000 ) ],
++			] );
++			$t_command->execute();
++			$this->fail( 'An unknown project must be rejected.' );
++		} catch( ClientException $e ) {
++			$this->assertEquals( ERROR_PROJECT_NOT_FOUND, $e->getCode() );
++		}
++	}
++
++	/**
++	 * Test that the legacy status field is ignored by the add and update commands.
++	 *
++	 * @return void
++	 */
++	public function testStatusFieldIsIgnored() {
++		self::login();
++		$t_data = [
++			'query' => [ 'project_id' => 1 ],
++			'payload' => [
++				'name' => 'command status category ' . rand( 1, 1000000 ),
++				'status' => CATEGORY_STATUS_DISABLED,
++			],
++		];
++		$t_command = new \CategoryAddCommand( $t_data );
++		$t_result = $t_command->execute();
++		$t_category_id = $t_result['category']['id'];
++
++		try {
++			$this->assertTrue( $t_result['category']['enabled'] );
++			$this->assertArrayNotHasKey( 'status', $t_result['category'] );
++			$this->assertTrue( category_is_enabled( $t_category_id ) );
++
++			$t_data = [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++				'payload' => [ 'status' => CATEGORY_STATUS_DISABLED ],
++			];
++			$t_command = new \CategoryUpdateCommand( $t_data );
++			$t_result = $t_command->execute();
++			$this->assertTrue( $t_result['category']['enabled'] );
++			$this->assertArrayNotHasKey( 'status', $t_result['category'] );
++			$this->assertTrue( category_is_enabled( $t_category_id ) );
++
++			$t_data = [
++				'query' => [ 'project_id' => 1, 'category_id' => $t_category_id ],
++				'payload' => [ 'enabled' => false, 'status' => CATEGORY_STATUS_ENABLED ],
++			];
++			$t_command = new \CategoryUpdateCommand( $t_data );
++			$t_result = $t_command->execute();
++			$this->assertFalse( $t_result['category']['enabled'] );
++			$this->assertFalse( category_is_enabled( $t_category_id ) );
++		} finally {
++			category_remove( $t_category_id );
++		}
++	}
++
++	/**
++	 * Assert that a command fails with a category not found error.
++	 *
++	 * @param \Command $p_command Category command to execute.
++	 *
++	 * @return void
++	 */
++	private function assertCategoryNotFound( \Command $p_command ) {
++		try {
++			$p_command->execute();
++			$this->fail( 'The category must not be found.' );
++		} catch( ClientException $e ) {
++			$this->assertEquals( ERROR_CATEGORY_NOT_FOUND, $e->getCode() );
++		}
++	}
++
+ 	/**
+ 	 * Create an issue with no explicit handler in the specified category.
+ 	 *
+diff --git a/tests/Mantis/CategoryDeleteCommandTest.php b/tests/Mantis/CategoryDeleteCommandTest.php
+index 95f1c43e3..74e2ec5f7 100644
+--- a/tests/Mantis/CategoryDeleteCommandTest.php
++++ b/tests/Mantis/CategoryDeleteCommandTest.php
+@@ -63,4 +63,75 @@ class CategoryDeleteCommandTest extends MantisCoreBase {
+ 			category_remove( $t_category_id );
+ 		}
+ 	}
++
++	/**
++	 * Test that the configured default category cannot be deleted when it is global.
++	 *
++	 * @return void
++	 * @throws ClientException
++	 */
++	public function testCannotDeleteDefaultGlobalCategory() {
++		self::login();
++		$t_category_id = category_add( ALL_PROJECTS, 'command default global category ' . rand( 1, 1000000 ) );
++		$t_had_database_value = config_is_set_in_database( 'default_category_for_moves', ALL_USERS, ALL_PROJECTS );
++		$t_old_value = config_get( 'default_category_for_moves', null, ALL_USERS, ALL_PROJECTS );
++		config_set( 'default_category_for_moves', $t_category_id, ALL_USERS, ALL_PROJECTS );
++
++		try {
++			$t_data = [ 'query' => [
++				'project_id' => ALL_PROJECTS,
++				'category_id' => $t_category_id,
++			] ];
++			$t_command = new \CategoryDeleteCommand( $t_data );
++			try {
++				$t_command->execute();
++				$this->fail( 'The default category must not be deleted.' );
++			} catch( ClientException $e ) {
++				$this->assertEquals( ERROR_CATEGORY_CANNOT_UPDATE_DEFAULT, $e->getCode() );
++			}
++
++			$this->assertTrue( category_exists( $t_category_id ) );
++		} finally {
++			if( $t_had_database_value ) {
++				config_set( 'default_category_for_moves', $t_old_value, ALL_USERS, ALL_PROJECTS );
++			} else {
++				config_delete( 'default_category_for_moves', ALL_USERS, ALL_PROJECTS );
++			}
++			category_remove( $t_category_id );
++		}
++	}
++
++	/**
++	 * Test that a global category used by issues is not deleted without reassignment.
++	 *
++	 * @return void
++	 */
++	public function testCannotDeleteGlobalCategoryWithIssues() {
++		self::login();
++		$t_category_id = category_add( ALL_PROJECTS, 'command used global category ' . rand( 1, 1000000 ) );
++		$t_issue = new \BugData();
++		$t_issue->project_id = 1;
++		$t_issue->reporter_id = auth_get_current_user_id();
++		$t_issue->summary = __CLASS__ . ': test issue ' . rand( 1, 1000000 );
++		$t_issue->description = 'Test issue for global category deletion.';
++		$t_issue->category_id = $t_category_id;
++		$t_issue_id = $t_issue->create();
++
++		try {
++			$t_command = new \CategoryDeleteCommand( [ 'query' => [
++				'project_id' => ALL_PROJECTS,
++				'category_id' => $t_category_id,
++			] ] );
++			try {
++				$t_command->execute();
++				$this->fail( 'A category used by issues must not be deleted.' );
++			} catch( ClientException $e ) {
++				$this->assertEquals( ERROR_CATEGORY_CANNOT_DELETE_HAS_ISSUES, $e->getCode() );
++			}
++			$this->assertTrue( category_exists( $t_category_id ) );
++		} finally {
++			bug_delete( $t_issue_id );
++			category_remove( $t_category_id );
++		}
++	}
+ }
+diff --git a/tests/rest/RestProjectCategoryTest.php b/tests/rest/RestProjectCategoryTest.php
+index 4c8dbbbd1..2dce128cd 100644
+--- a/tests/rest/RestProjectCategoryTest.php
++++ b/tests/rest/RestProjectCategoryTest.php
+@@ -178,6 +178,69 @@ class RestProjectCategoryTest extends RestBase {
+ 		$this->deleteCategory( $t_category['id'] );
+ 	}
+ 
++	/**
++	 * Test that the legacy status field is ignored by the REST API.
++	 *
++	 * @return void
++	 */
++	public function testProjectCategoryStatusFieldIsIgnored() {
++		$t_category = $this->createCategory( [
++			'name' => 'REST status category ' . rand( 1, 1000000 ),
++			'status' => CATEGORY_STATUS_DISABLED,
++		] );
++		$this->assertTrue( $t_category['enabled'] );
++		$this->assertArrayNotHasKey( 'status', $t_category );
++
++		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [
++			'status' => CATEGORY_STATUS_DISABLED,
++		] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_updated = json_decode( $t_response->getBody(), true )['category'];
++		$this->assertTrue( $t_updated['enabled'] );
++		$this->assertEquals( $t_category['name'], $t_updated['name'] );
++		$this->assertArrayNotHasKey( 'status', $t_updated );
++
++		$t_response = $this->builder()->patch( $this->base_url . $t_category['id'], [
++			'enabled' => false,
++			'status' => CATEGORY_STATUS_ENABLED,
++		] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_updated = json_decode( $t_response->getBody(), true )['category'];
++		$this->assertFalse( $t_updated['enabled'] );
++		$this->assertArrayNotHasKey( 'status', $t_updated );
++
++		$this->deleteCategory( $t_category['id'] );
++	}
++
++	/**
++	 * Test creating, updating, and deleting a global category (All Projects).
++	 *
++	 * @return void
++	 */
++	public function testGlobalCategoryCrud() {
++		$this->base_url = '/projects/' . ALL_PROJECTS . '/categories/';
++		$t_name = 'REST global category ' . rand( 1, 1000000 );
++		$t_category = $this->createCategory( [ 'name' => $t_name ] );
++		$this->assertEquals( $t_name, $t_category['name'] );
++		$this->assertEquals( ALL_PROJECTS, $t_category['project']['id'] );
++		$this->assertTrue( $t_category['enabled'] );
++		$this->assertArrayNotHasKey( 'status', $t_category );
++
++		$t_id = $t_category['id'];
++		$t_response = $this->builder()->patch( $this->base_url . $t_id, [
++			'name' => $t_name . ' updated',
++			'enabled' => false,
++		] )->send();
++		$this->assertEquals( HTTP_STATUS_SUCCESS, $t_response->getStatusCode() );
++		$t_category = json_decode( $t_response->getBody(), true )['category'];
++		$this->assertEquals( $t_name . ' updated', $t_category['name'] );
++		$this->assertFalse( $t_category['enabled'] );
++		$this->assertEquals( ALL_PROJECTS, $t_category['project']['id'] );
++
++		$this->deleteCategory( $t_id );
++		$this->assertEquals( HTTP_STATUS_NOT_FOUND, $this->builder()->get( $this->base_url . $t_id )->send()->getStatusCode() );
++	}
++
+ 	/**
+ 	 * Test that assigned users must exist when adding or updating categories.
+ 	 *

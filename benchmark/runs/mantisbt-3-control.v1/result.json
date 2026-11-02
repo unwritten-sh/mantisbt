@@ -1,0 +1,98 @@
+{
+  "task": "mantisbt-3",
+  "arm": "control",
+  "start": "92d0f6ffbbafba99b249aae534674b697c39c840",
+  "seconds": 203,
+  "result": {
+    "status": "done",
+    "summary": "Both problems are fixed and the full test suite passes (747 tests, 0 failures). 1) The add, update and delete category commands now accept project id 0 (ALL_PROJECTS), so global categories can be added, changed and deleted. A new helper, category_parse_project_id() in core/category_api.php, accepts 0 or an existing project id; unknown project ids are still rejected with ERROR_PROJECT_NOT_FOUND. Delete rules are unchanged: category_ensure_can_remove still blocks deleting the default category, and a test now covers this for a global category. 2) The commands no longer read the `status` payload field. Only `enabled` controls the state: a new category with only `status` stays enabled, and an update with only `status` changes nothing. Responses never contain `status`, and `status` is removed from the ProjectCategoriesAdd and ProjectCategoriesUpdate schemas in the OpenAPI file. SOAP is not affected: its category functions (mc_project_add_category, mc_project_rename_category_by_name, mc_project_delete_category) never passed `status` to the commands, and the SOAP CategoryTest still passes. Test environment note: the API token in the local, gitignored tests/bootstrap.php no longer matched the shared MySQL database, so REST calls ran as anonymous and got 403. To run the REST and SOAP suites, I created a temporary admin API token, used it through a temporary bootstrap file in /tmp, and started `php -S 127.0.0.1:8989` from this tree. After the run I deleted the token from the database, stopped the server and removed the temporary files. To confirm the new tests are useful, I also ran them against the original command files: 3 tests failed, as expected, and then I restored the fix. Nothing is committed.",
+    "changes": [
+      {
+        "path": "core/category_api.php",
+        "summary": "Add category_parse_project_id(): accepts ALL_PROJECTS (0) or an existing project id; otherwise throws the same ClientException as before."
+      },
+      {
+        "path": "core/commands/CategoryAddCommand.php",
+        "summary": "Use category_parse_project_id() so global categories can be added; ignore `status` and use only `enabled` (default true)."
+      },
+      {
+        "path": "core/commands/CategoryUpdateCommand.php",
+        "summary": "Use category_parse_project_id() so global categories can be updated; ignore `status` and use `enabled`, or keep the current state if `enabled` is missing."
+      },
+      {
+        "path": "core/commands/CategoryDeleteCommand.php",
+        "summary": "Use category_parse_project_id() so global categories can be deleted; delete rules unchanged."
+      },
+      {
+        "path": "api/rest/mantisbt_openapi.yaml",
+        "summary": "Remove `status` from the ProjectCategoriesAdd and ProjectCategoriesUpdate request schemas."
+      },
+      {
+        "path": "tests/Mantis/CategoryCommandTest.php",
+        "summary": "New tests: global category add/update/delete through the commands; a global category is not found through a real project id; an unknown project id is still rejected; a `status` payload is ignored on add and update."
+      },
+      {
+        "path": "tests/Mantis/CategoryDeleteCommandTest.php",
+        "summary": "New test: a global category set as default_category_for_moves cannot be deleted (ERROR_CATEGORY_CANNOT_UPDATE_DEFAULT)."
+      },
+      {
+        "path": "tests/rest/RestProjectCategoryTest.php",
+        "summary": "New test: REST POST with `status`=0 creates an enabled category; PATCH with only `status` changes nothing; `enabled` wins over `status`; responses never contain `status`."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "A global category can be added, updated and deleted through the commands",
+        "met": true,
+        "evidence": "CategoryCommandTest::testGlobalCategoryCrud passes: add with project_id ALL_PROJECTS, update with project_id '0' (name and enabled), delete with ALL_PROJECTS. CategoryDeleteCommandTest::testCannotDeleteDefaultGlobalCategory shows the default category rule still applies. Both tests fail when run against the original command files."
+      },
+      {
+        "criterion": "REST ignores `status` (new category stays enabled, update with only `status` changes nothing, responses never contain `status`), and `status` is removed from the OpenAPI requests",
+        "met": true,
+        "evidence": "RestProjectCategoryTest::testProjectCategoryStatusIgnored passes against a local server running this tree. `status` is removed from both request schemas in mantisbt_openapi.yaml. `npm run api:validate` says the file is valid; its 3 warnings already exist on master."
+      },
+      {
+        "criterion": "SOAP keeps working as today",
+        "met": true,
+        "evidence": "The SOAP functions never passed `status` to the commands. tests/soap/CategoryTest.php and the whole soap suite pass."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "There are 5 new command-level tests and 1 new REST test. Without the fix, 3 of them fail (global CRUD, status ignored, global default delete)."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "`vendor/bin/phpunit` (mantis, soap, rest and formatting suites) with a temporary valid API token: OK (747 tests, 2566 assertions)."
+      }
+    ],
+    "human_needed": [],
+    "harness_used": [
+      "Skill implement-change (.claude/skills/implement-change): general steps (tests in tests/Mantis and tests/rest, business rules in core/commands)",
+      "Skill rest-api-change (.claude/skills/rest-api-change): update mantisbt_openapi.yaml in the same change, run npm run api:validate, check SOAP",
+      "phpunit.xml test suites (mantis, soap, rest) and tests/bootstrap.php",
+      "tests/ci_create_api_token.php, used as a model for creating a temporary API token",
+      "package.json script api:validate (redocly lint)",
+      "Local config/config_inc.php and the running mantisbt-mysql-1 Docker container"
+    ],
+    "harness_gaps": [
+      {
+        "file": "composer.json",
+        "problem": "The skills tell you to run `composer run setup`, `composer run check-fast` and `composer run check`, but composer.json has no such scripts. I had to run phpunit and npm run api:validate by hand."
+      },
+      {
+        "file": "docs/product.md, docs/architecture.md, docs/decisions/0002-commands-shared-by-ui-and-rest.md, docs/harness/log.md, AGENTS.md",
+        "problem": "The skills point to these files, but they do not exist in this checkout."
+      },
+      {
+        "file": "tests/bootstrap.php",
+        "problem": "This local, gitignored file has a hardcoded API token that no longer matched the shared database, so every REST test ran as anonymous and failed with 403. There is no documented step to refresh the token, and the bootstrap has no env-var override. I worked around it with a temporary token and a bootstrap file in /tmp."
+      },
+      {
+        "file": null,
+        "problem": "No documented way to start the web server on 127.0.0.1:8989 that the REST and SOAP tests need. I used `php -S 127.0.0.1:8989 -t .` by hand. The MySQL database `bugtracker` also seems to be shared between worktrees, so concurrent runs can affect each other."
+      }
+    ]
+  }
+}

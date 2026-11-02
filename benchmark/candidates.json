@@ -1,0 +1,317 @@
+[
+  {
+    "sha": "4b0c66f1cedaf2b64fe4aaad9c9e3ac670b7f048",
+    "date": "2026-08-23",
+    "subject": "Standardize handler field handling",
+    "product": [
+      "api/soap/mc_project_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryGetCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "manage_proj_cat_edit_page.php",
+      "manage_proj_cat_update.php",
+      "manage_proj_edit_page.php",
+      "manage_proj_page.php"
+    ],
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/rest/RestProjectCategoryTest.php"
+    ],
+    "changed": 64
+  },
+  {
+    "sha": "abfbb131d370eea19cbe5788f4f03265d1fcc501",
+    "date": "2026-08-23",
+    "subject": "Apply category command style improvements",
+    "product": [
+      "api/rest/restcore/projects_rest.php",
+      "api/soap/mc_project_api.php",
+      "core/category_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryDeleteCommand.php",
+      "core/commands/CategoryGetCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "core/print_api.php",
+      "manage_proj_cat_add.php",
+      "manage_proj_cat_copy.php",
+      "manage_proj_cat_delete.php",
+      "manage_proj_cat_edit_page.php",
+      "manage_proj_cat_update.php",
+      "manage_proj_edit_page.php",
+      "manage_proj_page.php"
+    ],
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/Mantis/CategoryDeleteCommandTest.php",
+      "tests/soap/CategoryTest.php"
+    ],
+    "changed": 298
+  },
+  {
+    "sha": "596ae02a038a609996eac4575660d38e3851d696",
+    "date": "2026-08-22",
+    "subject": "Project categories: use enabled and support global categories",
+    "product": [
+      "api/soap/mc_project_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryDeleteCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "manage_proj_cat_update.php"
+    ],
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/rest/RestProjectCategoryTest.php"
+    ],
+    "changed": 36
+  },
+  {
+    "sha": "cf9fe3bfd816342282f1d2e00232dc0447a143b8",
+    "date": "2026-07-30",
+    "subject": "Accept optional Bearer prefix on API token",
+    "product": [
+      "api/rest/restcore/AuthMiddleware.php",
+      "core/api_token_api.php"
+    ],
+    "tests": [
+      "tests/Mantis/ApiTokenApiTest.php",
+      "tests/rest/RestAuthHeaderTest.php"
+    ],
+    "changed": 30
+  },
+  {
+    "sha": "b7741aa561bc1632ec24231e5b17dcca3c1e67ab",
+    "date": "2026-02-03",
+    "subject": "Optimize the verification of uploaded files",
+    "product": [
+      "core/commands/IssueAddCommand.php",
+      "core/commands/IssueFileAddCommand.php",
+      "core/commands/IssueNoteAddCommand.php",
+      "core/file_api.php",
+      "proj_doc_update.php"
+    ],
+    "tests": [
+      "tests/Mantis/AntispamApiTest.php",
+      "tests/Mantis/FileApiTest.php"
+    ],
+    "changed": 147
+  },
+  {
+    "sha": "36044d2684004e4f4fec9efac1716bbdf2e15bc7",
+    "date": "2026-05-05",
+    "subject": "Add a cache for tokens retrieved from the database",
+    "product": [
+      "core/tokens_api.php"
+    ],
+    "tests": [
+      "tests/Mantis/TokensApiTest.php"
+    ],
+    "changed": 133
+  },
+  {
+    "sha": "febb203a4fcd34e11e512b18074fe1d5a49ccb00",
+    "date": "2025-10-24",
+    "subject": "PHP 8.5: non-canonical cast deprecations (integer => int)",
+    "product": [
+      "api/soap/mc_issue_api.php",
+      "bug_view_inc.php",
+      "core/classes/BugFilterQuery.class.php",
+      "core/commands/IssueNoteDeleteCommand.php",
+      "core/commands/ProjectDeleteCommand.php",
+      "core/commands/ProjectHierarchyAddCommand.php",
+      "core/commands/ProjectHierarchyDeleteCommand.php",
+      "core/commands/ProjectHierarchyUpdateCommand.php",
+      "core/commands/ProjectUpdateCommand.php",
+      "core/commands/VersionAddCommand.php",
+      "core/commands/VersionDeleteCommand.php",
+      "core/commands/VersionGetCommand.php",
+      "core/commands/VersionUpdateCommand.php",
+      "core/config_api.php",
+      "core/helper_api.php",
+      "core/print_api.php",
+      "core/rss_api.php",
+      "core/sponsorship_api.php",
+      "core/user_api.php",
+      "file_download.php"
+    ],
+    "tests": [
+      "tests/soap/LoginTest.php"
+    ],
+    "changed": 78
+  },
+  {
+    "sha": "54a1b0f1f3113ee9572b1952d1c3fe7f9a7e3f7a",
+    "date": "2025-05-24",
+    "subject": "Config instead of constant for max longtext length",
+    "product": [
+      "bug_actiongroup_add_note_inc.php",
+      "bug_actiongroup_page.php",
+      "bug_reminder_page.php",
+      "bug_update_page.php",
+      "bugnote_add_inc.php",
+      "bugnote_edit_page.php",
+      "config_defaults_inc.php",
+      "core/constant_inc.php",
+      "core/helper_api.php"
+    ],
+    "tests": [
+      "tests/soap/IssueNoteTest.php"
+    ],
+    "changed": 45
+  },
+  {
+    "sha": "132e9d64aa11001229d6a7b8c7eebd467f1da2fe",
+    "date": "2024-06-15",
+    "subject": "Replace dirname( __FILE__ ) by __DIR__ (3)",
+    "product": [
+      "admin/check/index.php",
+      "admin/db_stats.php",
+      "admin/email_queue.php",
+      "admin/index.php",
+      "admin/install.php",
+      "admin/move_attachments.php",
+      "admin/move_attachments_page.php",
+      "admin/system_utils.php",
+      "admin/test_langs.php",
+      "admin/upgrade_unattended.php",
+      "api/rest/restcore/filters_rest.php",
+      "api/soap/mantisconnect.php",
+      "api/soap/mc_api.php",
+      "core/classes/FilterConverter.class.php",
+      "core/logging_api.php",
+      "css/status_config.php",
+      "scripts/cronjob.php",
+      "scripts/send_emails.php"
+    ],
+    "tests": [
+      "plugins/MantisCoreFormatting/tests/MarkdownTest.php",
+      "tests/Mantis/Helper/ArrayTransposeTest.php",
+      "tests/Mantis/Helper/GetLinkAttributesTest.php",
+      "tests/Mantis/MantisCoreBase.php",
+      "tests/TestConfig.php",
+      "tests/rest/RestBase.php",
+      "tests/soap/SoapBase.php",
+      "tests/travis_create_api_token.php"
+    ],
+    "changed": 48
+  },
+  {
+    "sha": "aeeb60ecc8b2c4aaf349967897d4ab2b68b29b46",
+    "date": "2023-10-08",
+    "subject": "Use dirname()'s levels parameter",
+    "product": [
+      "admin/check/index.php",
+      "admin/db_stats.php",
+      "admin/email_queue.php",
+      "admin/index.php",
+      "admin/install.php",
+      "admin/move_attachments.php",
+      "admin/system_utils.php",
+      "admin/test_langs.php",
+      "admin/upgrade_unattended.php",
+      "api/rest/restcore/filters_rest.php",
+      "api/soap/mantisconnect.php",
+      "api/soap/mc_api.php",
+      "core/classes/FilterConverter.class.php",
+      "core/logging_api.php",
+      "css/status_config.php",
+      "scripts/cronjob.php",
+      "scripts/send_emails.php"
+    ],
+    "tests": [
+      "plugins/MantisCoreFormatting/tests/MarkdownTest.php",
+      "tests/Mantis/MantisCoreBase.php",
+      "tests/TestConfig.php",
+      "tests/soap/SoapBase.php",
+      "tests/travis_create_api_token.php"
+    ],
+    "changed": 38
+  },
+  {
+    "sha": "4cdf5c7dd2e983f0b3e93a91878cbcf2f050f973",
+    "date": "2023-04-22",
+    "subject": "Fix indentation + php docs",
+    "product": [
+      "core/commands/VersionUpdateCommand.php",
+      "core/version_api.php"
+    ],
+    "tests": [
+      "tests/rest/RestBase.php",
+      "tests/rest/RestProjectVersionTests.php"
+    ],
+    "changed": 82
+  },
+  {
+    "sha": "5caafd27b114ef3964c852772b77ab1ae0fa5157",
+    "date": "2023-04-22",
+    "subject": "Add test cases for project version APIs + fixes",
+    "product": [
+      "api/rest/restcore/projects_rest.php",
+      "core/commands/VersionAddCommand.php",
+      "core/commands/VersionGetCommand.php",
+      "core/commands/VersionUpdateCommand.php",
+      "core/version_api.php",
+      "manage_proj_ver_add.php",
+      "manage_proj_ver_delete.php"
+    ],
+    "tests": [
+      "tests/core/RequestBuilder.php",
+      "tests/rest/RestBase.php",
+      "tests/rest/RestProjectVersionTests.php"
+    ],
+    "changed": 172
+  },
+  {
+    "sha": "4d08ef6da0fb08b74b6d739c1610c89e5ae11bd7",
+    "date": "2023-04-21",
+    "subject": "REST API: Get API by username instead of ref - no more real name or email",
+    "product": [
+      "api/rest/restcore/users_rest.php",
+      "core/commands/UserGetCommand.php"
+    ],
+    "tests": [
+      "tests/rest/RestUserTests.php"
+    ],
+    "changed": 155
+  },
+  {
+    "sha": "60f781b95428e74d69017c5e858a5af0c259f13a",
+    "date": "2023-04-09",
+    "subject": "REST API: Get User By Ref (where ref can be id, name, email, realname)",
+    "product": [
+      "api/rest/restcore/users_rest.php",
+      "core/commands/UserGetCommand.php"
+    ],
+    "tests": [
+      "tests/rest/RestUserTests.php"
+    ],
+    "changed": 51
+  },
+  {
+    "sha": "957f3818ae33064a7bf4a982c8488dd4a8b0c50d",
+    "date": "2023-04-09",
+    "subject": "REST API: Support select in Get User API and return as users array",
+    "product": [
+      "api/rest/restcore/users_rest.php",
+      "api/soap/mc_api.php",
+      "core/commands/UserGetCommand.php"
+    ],
+    "tests": [
+      "tests/rest/RestBase.php",
+      "tests/rest/RestUserTests.php"
+    ],
+    "changed": 136
+  },
+  {
+    "sha": "0f701bdb24b8af94faeea258f244a2927de35246",
+    "date": "2022-08-25",
+    "subject": "Markdown. external css to style the quotings.",
+    "product": [
+      "plugins/MantisCoreFormatting/MantisCoreFormatting.php",
+      "plugins/MantisCoreFormatting/core/MantisMarkdown.php"
+    ],
+    "tests": [
+      "plugins/MantisCoreFormatting/tests/MarkdownTest.php"
+    ],
+    "changed": 50
+  }
+]

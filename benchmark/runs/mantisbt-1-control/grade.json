@@ -1,0 +1,35 @@
+{
+  "task": "mantisbt-1",
+  "arm": "control",
+  "applied": true,
+  "apply_error": "",
+  "hidden": {
+    "code": 0,
+    "tests": {
+      "ran": 17,
+      "skipped": 0,
+      "failed": 0
+    },
+    "seconds": 8,
+    "tail": ""
+  },
+  "full": {
+    "code": 0,
+    "tests": {
+      "ran": 790,
+      "skipped": 0,
+      "failed": 0
+    },
+    "seconds": 81,
+    "tail": ""
+  },
+  "reference": {
+    "code": 0,
+    "tests": {
+      "ran": 749,
+      "skipped": 0,
+      "failed": 0
+    }
+  },
+  "solved": true
+}

@@ -1,0 +1,88 @@
+{
+  "task": "mantisbt-3",
+  "arm": "harness",
+  "start": "7d21a327845a36f340e704f5fdc1a34c7ccb92fd",
+  "seconds": 246,
+  "result": {
+    "status": "done",
+    "summary": "Category add/update/delete commands now accept project id 0 (ALL_PROJECTS), so global categories can be managed. The delete rules are unchanged. The commands no longer read the legacy `status` payload field, so REST ignores it and only `enabled` sets the category state. Responses never had `status` and still do not. `status` was removed from the ProjectCategoriesAdd/ProjectCategoriesUpdate OpenAPI schemas. No SOAP or UI caller passed `status` to the commands, so SOAP is unchanged. Command and REST tests were added. check-fast and the full check (748 tests) pass.",
+    "changes": [
+      {
+        "path": "core/commands/CategoryAddCommand.php",
+        "summary": "Accept project_id 0 (ALL_PROJECTS); status comes only from `enabled` (payload `status` ignored)."
+      },
+      {
+        "path": "core/commands/CategoryUpdateCommand.php",
+        "summary": "Accept project_id 0; status comes only from `enabled`, or the current state if `enabled` is absent."
+      },
+      {
+        "path": "core/commands/CategoryDeleteCommand.php",
+        "summary": "Accept project_id 0; delete checks (default category, issues, project match) unchanged."
+      },
+      {
+        "path": "api/rest/mantisbt_openapi.yaml",
+        "summary": "Removed `status` from ProjectCategoriesAdd and ProjectCategoriesUpdate schemas."
+      },
+      {
+        "path": "tests/Mantis/CategoryCommandTest.php",
+        "summary": "Added tests: add/update global category; status payload ignored on add and update."
+      },
+      {
+        "path": "tests/Mantis/CategoryDeleteCommandTest.php",
+        "summary": "Added tests: delete global category; global default category cannot be deleted; project category not deletable via ALL_PROJECTS."
+      },
+      {
+        "path": "tests/rest/RestProjectCategoryTest.php",
+        "summary": "Added REST tests: `status` ignored on POST/PATCH and absent from responses; CRUD on /projects/0/categories."
+      },
+      {
+        "path": "docs/harness/log.md",
+        "summary": "Added log entry for this change."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "A global category can be added, updated and deleted through the commands",
+        "met": true,
+        "evidence": "testAddAndUpdateGlobalCategory, testDeleteGlobalCategory, testCannotDeleteGlobalDefaultCategory (tests/Mantis) and testGlobalCategoryCrud (tests/rest) pass."
+      },
+      {
+        "criterion": "REST ignores `status`; responses never contain it; OpenAPI requests no longer describe it",
+        "met": true,
+        "evidence": "testProjectCategoryStatusIsIgnored (REST) and testStatusPayloadIsIgnored (command) pass; `status` removed from both request schemas; npm run api:validate reports the description valid."
+      },
+      {
+        "criterion": "Change is covered by tests",
+        "met": true,
+        "evidence": "7 new tests in 3 test files; 6 ran with `build/local_instance.sh test --filter ...` (OK, 41 assertions) and all 7 ran in the full gate."
+      },
+      {
+        "criterion": "Existing test suite still passes",
+        "met": true,
+        "evidence": "composer run check: OK (748 tests, 2578 assertions), including soap suite; composer run check-fast: OK."
+      }
+    ],
+    "human_needed": [],
+    "harness_used": [
+      "CLAUDE.md/AGENTS.md conventions and verify steps",
+      "rest-api-change skill (.agents/skills/rest-api-change/SKILL.md): pointed to commands, OpenAPI and tests/rest",
+      "composer run check-fast and composer run check gates",
+      "build/local_instance.sh test --filter to run single REST tests with a web server",
+      "docs/harness/log.md for the change log"
+    ],
+    "harness_gaps": [
+      {
+        "file": "CLAUDE.md",
+        "problem": "The one-test instructions say rest tests need `composer run dev` running, but do not say that `composer run check` stops the web server at the end; `build/local_instance.sh test --filter X` is the simpler way and is not documented there."
+      },
+      {
+        "file": "core/commands/CategoryGetCommand.php",
+        "problem": "Uses loose `== ALL_PROJECTS`, so a missing project_id is treated as ALL_PROJECTS. Not in scope; noted in the log."
+      },
+      {
+        "file": "api/rest/mantisbt_openapi.yaml",
+        "problem": "api:validate reports 3 warnings in schemas not touched by this change, which makes new warnings harder to notice."
+      }
+    ]
+  }
+}

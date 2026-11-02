@@ -1,0 +1,84 @@
+{
+  "task": "mantisbt-1",
+  "arm": "control",
+  "start": "f8e8c237208a988df996999c2f55b011ca4fb113",
+  "seconds": 408,
+  "result": {
+    "status": "done",
+    "summary": "All checks on one uploaded file are now in file_ensure_uploaded( array $p_file ), in the order the issue asks for, with the requested messages and the old error codes. file_add(), IssueAddCommand, IssueFileAddCommand and IssueNoteAddCommand call it; the three commands check every file during validation, so nothing is created when a file is bad. proj_doc_update.php also uses it. Before, that page ignored web server upload errors: a file that was too big left tmp_name empty, and the page only updated the title. Duplicated checks were removed from file_add(), IssueAddCommand and proj_doc_update.php. Every web server error code is handled now (INI_SIZE/FORM_SIZE give 'too big'; PARTIAL, NO_FILE, NO_TMP_DIR, CANT_WRITE, EXTENSION and unknown codes give 'upload failure'). A file without an 'error' key is valid. I added a small helper, file_remove_empty_uploads(). It drops the empty slot that a web form sends when no file is chosen (empty name, error UPLOAD_ERR_NO_FILE). file_attach_files() used to skip these slots silently; without the helper, the new validation would reject a normal note or issue form with no attachment. There are 17 new tests in tests/Mantis/FileUploadCheckTest.php, and the full PHPUnit suite passes (744 tests). One behaviour change to note: the XmlImportExport plugin's import page already called file_ensure_uploaded(), so the XML import file now also goes through the antispam, name length, file type and size checks.",
+    "changes": [
+      {
+        "path": "core/file_api.php",
+        "summary": "file_ensure_uploaded() now runs all 9 checks in the requested order (antispam, empty name, web server error codes with an optional 'error' key, name length, file type, empty path, readable, empty file, max size) and keeps the old error codes. file_add() calls it first and no longer repeats the name length, type, antispam, empty and size checks; it also no longer sets a default 'error'. New helper file_remove_empty_uploads() drops the empty 'no file selected' slots of web forms."
+      },
+      {
+        "path": "core/commands/IssueAddCommand.php",
+        "summary": "Removes empty form slots, then calls file_ensure_uploaded() for each file during validation. This replaces the separate name length check, which used a different message."
+      },
+      {
+        "path": "core/commands/IssueFileAddCommand.php",
+        "summary": "Requires file_api, removes empty form slots in parseFiles(), and calls file_ensure_uploaded() for each file at the end of validate(), after the permission checks."
+      },
+      {
+        "path": "core/commands/IssueNoteAddCommand.php",
+        "summary": "Requires file_api, removes empty form slots in parseFiles(), and calls file_ensure_uploaded() for each file during validation, after the upload permission and moderation checks."
+      },
+      {
+        "path": "proj_doc_update.php",
+        "summary": "Runs the file checks whenever a file name was sent, so web server errors are no longer ignored. Keeps an is_uploaded_file() guard. Removes the duplicated name length and max size checks, and reads the DATABASE content using the measured file size."
+      },
+      {
+        "path": "tests/Mantis/FileUploadCheckTest.php",
+        "summary": "New: 17 tests. They cover each check with its message and code, the check order, files with and without an 'error' key, every UPLOAD_ERR_* code, the antispam check, the empty-slot helper, file_add(), and the three commands. For the commands, they confirm that no issue, note or attachment is created when a file is invalid, and that a form with an empty slot still works."
+      }
+    ],
+    "acceptance": [
+      {
+        "criterion": "Every upload path uses file_ensure_uploaded() with the specified checks, order, messages and error codes",
+        "met": true,
+        "evidence": "Callers: file_add() (used by file_attach_files, proj_doc_add.php, SOAP mci_file_add and XML import attachments), IssueAddCommand::validate, IssueFileAddCommand::validate, IssueNoteAddCommand::validate, proj_doc_update.php and the XmlImportExport import_action.php. The duplicated checks in file_add(), IssueAddCommand and proj_doc_update.php are removed. Tests assert each message, code and the order (for example: empty name before upload error, upload error before name length, name length before type, type before empty path)."
+      },
+      {
+        "criterion": "The change is covered by tests",
+        "met": true,
+        "evidence": "tests/Mantis/FileUploadCheckTest.php: 17 tests, 83 assertions, all pass (vendor/bin/phpunit --filter FileUploadCheckTest). I could not run the new tests against the old code: the permission to temporarily restore the old files was denied."
+      },
+      {
+        "criterion": "The existing test suite still passes",
+        "met": true,
+        "evidence": "vendor/bin/phpunit (all suites: mantis, soap, rest, mantis core formatting): OK (744 tests, 2617 assertions). This run used a local PHP built-in server on 127.0.0.1:8989 and a fresh API token, passed through a temporary --bootstrap file (see harness_gaps)."
+      }
+    ],
+    "human_needed": [
+      {
+        "question": "Should the XmlImportExport plugin's XML import file go through the same checks as attachments (antispam, file type, name length, max_file_size)?",
+        "why": "It already called file_ensure_uploaded(), so it now gets all the new checks. For example, a large XML export bigger than max_file_size, or a setup where allowed_files does not include 'xml', will now be rejected. I kept it because the task asks that every upload path use the one function, but this is a behaviour change for admins."
+      }
+    ],
+    "harness_used": [
+      ".claude/skills/implement-change/SKILL.md (workflow: write test in tests/Mantis extending MantisCoreBase, run with vendor/bin/phpunit --filter)",
+      "tests/Mantis/MantisCoreBase.php and tests/core/MantisTestCase.php (login, setConfig/restoreConfig helpers)",
+      "tests/Mantis/IssueNoteAddCommandTest.php as a pattern for command tests",
+      "config/config_inc.php with a working local MySQL database, so the DB tests ran directly",
+      "tests/ci_create_api_token.php (showed how CI creates the REST token)"
+    ],
+    "harness_gaps": [
+      {
+        "file": ".claude/skills/implement-change/SKILL.md",
+        "problem": "It refers to AGENTS.md, docs/product.md, docs/architecture.md, docs/harness/log.md, tests/Unit/, phpunit.unit.xml and the composer scripts 'setup', 'check-fast' and 'check'. None of these exist in this tree (composer.json has no scripts section), so the fast and full gates could not be run as described."
+      },
+      {
+        "file": "tests/bootstrap.php",
+        "problem": "The API token in the local bootstrap is not valid in the local database, so REST calls ran as the anonymous user and about 280 REST/SOAP tests failed. Nothing documents that a web server must run on 127.0.0.1:8989 or how to refresh the token. I started 'php -S 127.0.0.1:8989', created a token in the local DB (name BenchPHPUnit-*, it is still there) and used a temporary --bootstrap copy, without editing the repo file."
+      },
+      {
+        "file": "tests/rest/RestIssueTest.php",
+        "problem": "The test sets tag_create_threshold to NOBODY and resets it only after an assertion. When the REST server is down, the assertion fails, the setting stays in the database, and later TagApiTest stops the whole PHPUnit run with 'Access Denied.' (exit). I deleted the leftover config row in the local DB. The test should restore the setting in a finally block or tearDown, and config_set() does not return the old value, so the reset value is also wrong."
+      },
+      {
+        "file": null,
+        "problem": "No test helper exists to build uploaded-file arrays or to count attachments without the bug_get_attachments() cache, so the new test queries the bug_file and bugnote tables directly."
+      }
+    ]
+  }
+}

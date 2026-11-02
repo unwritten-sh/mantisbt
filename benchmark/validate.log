@@ -1,0 +1,32 @@
+[21:02:33] validate 4b0c66f1ce Standardize handler field handling
+[21:02:34]   valid=false error=error: could not revert 4b0c66f1c... Standardize handler field handling
+[21:02:34] validate abfbb131d3 Apply category command style improvements
+[21:02:34]   valid=false error=error: could not revert abfbb131d... Apply category command style improvements
+[21:02:34] validate 596ae02a03 Project categories: use enabled and support global categories
+[21:02:35]   valid=false error=error: could not revert 596ae02a0... Project categories: use enabled and support global categories
+[21:02:35] validate cf9fe3bfd8 Accept optional Bearer prefix on API token
+[21:02:35]   valid=false error=error: could not revert cf9fe3bfd... Accept optional Bearer prefix on API token
+[21:02:35] validate b7741aa561 Optimize the verification of uploaded files
+[21:04:49]   valid=true
+[21:04:49] validate 36044d2684 Add a cache for tokens retrieved from the database
+[21:04:50]   valid=false error=error: could not revert 36044d268... Add a cache for tokens retrieved from the database
+[21:04:50] validate febb203a4f PHP 8.5: non-canonical cast deprecations (integer => int)
+[21:06:51]   valid=false
+[21:06:51] validate 54a1b0f1f3 Config instead of constant for max longtext length
+[21:06:52]   valid=false error=error: could not revert 54a1b0f1f... Config instead of constant for max longtext length
+[21:06:52] validate 132e9d64aa Replace dirname( __FILE__ ) by __DIR__ (3)
+[21:06:52]   valid=false error=error: could not revert 132e9d64a... Replace dirname( __FILE__ ) by __DIR__ (3)
+[21:06:52] validate aeeb60ecc8 Use dirname()'s levels parameter
+[21:06:53]   valid=false error=error: could not revert aeeb60ecc... Use dirname()'s levels parameter
+[21:06:53] validate 4cdf5c7dd2 Fix indentation + php docs
+[21:06:54]   valid=false error=error: could not revert 4cdf5c7dd... Fix indentation + php docs
+[21:06:54] validate 5caafd27b1 Add test cases for project version APIs + fixes
+[21:06:54]   valid=false error=error: could not revert 5caafd27b... Add test cases for project version APIs + fixes
+[21:06:54] validate 4d08ef6da0 REST API: Get API by username instead of ref - no more real name or email
+[21:06:55]   valid=false error=error: could not revert 4d08ef6da... REST API: Get API by username instead of ref - no more real name or email
+[21:06:55] validate 60f781b954 REST API: Get User By Ref (where ref can be id, name, email, realname)
+[21:06:55]   valid=false error=error: could not revert 60f781b95... REST API: Get User By Ref (where ref can be id, name, email, realname)
+[21:06:55] validate 957f3818ae REST API: Support select in Get User API and return as users array
+[21:06:56]   valid=false error=error: could not revert 957f3818a... REST API: Support select in Get User API and return as users array
+[21:06:56] validate 0f701bdb24 Markdown. external css to style the quotings.
+[21:06:56]   valid=false error=error: could not revert 0f701bdb2... Markdown. external css to style the quotings.

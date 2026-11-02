@@ -1,0 +1,14 @@
+{
+  "arm": "control",
+  "seconds": 136,
+  "command": "vendor/bin/phpunit",
+  "code": 0,
+  "tests": {
+    "ran": 744,
+    "skipped": 0,
+    "failed": 0
+  },
+  "tail": "",
+  "reports": 0,
+  "ready": true
+}

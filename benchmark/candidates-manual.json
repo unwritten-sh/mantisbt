@@ -1,0 +1,41 @@
+[
+  {
+    "sha": "4b0c66f1cedaf2b64fe4aaad9c9e3ac670b7f048",
+    "date": "2026-08-23",
+    "subject": "Standardize handler field handling",
+    "product": [
+      "api/soap/mc_project_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryGetCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "manage_proj_cat_edit_page.php",
+      "manage_proj_cat_update.php",
+      "manage_proj_edit_page.php",
+      "manage_proj_page.php"
+    ],
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/rest/RestProjectCategoryTest.php"
+    ],
+    "changed": 64,
+    "revert_patch": "patches/4b0c66f1ce.patch"
+  },
+  {
+    "sha": "596ae02a038a609996eac4575660d38e3851d696",
+    "date": "2026-08-22",
+    "subject": "Project categories: use enabled and support global categories",
+    "product": [
+      "api/soap/mc_project_api.php",
+      "core/commands/CategoryAddCommand.php",
+      "core/commands/CategoryDeleteCommand.php",
+      "core/commands/CategoryUpdateCommand.php",
+      "manage_proj_cat_update.php"
+    ],
+    "tests": [
+      "tests/Mantis/CategoryCommandTest.php",
+      "tests/rest/RestProjectCategoryTest.php"
+    ],
+    "changed": 36,
+    "revert_patch": "patches/596ae02a03.patch"
+  }
+]

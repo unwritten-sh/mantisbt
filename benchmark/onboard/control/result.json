@@ -1,0 +1,20 @@
+{
+  "arm": "control",
+  "seconds": 136,
+  "result": {
+    "status": "done",
+    "test_command": "vendor/bin/phpunit",
+    "setup_steps": [
+      "Read .github/workflows/mantisbt.yml, build/ci_install_mantis.sh and build/ci_post_install.sh, and followed the pgsql variant of the CI job",
+      "Used the existing Homebrew PHP 8.5.3 (in the CI matrix; mysqli, pgsql, soap, gd, curl, ldap, zip and other extensions already loaded)",
+      "composer install (phpunit 10.5.64 and runtime deps into vendor/)",
+      "Used the already-running Homebrew postgresql@14 on localhost:5432: createdb bugtracker; CREATE USER root WITH SUPERUSER ... PASSWORD 'root'; GRANT ALL PRIVILEGES ON DATABASE bugtracker TO root",
+      "Started the PHP built-in web server in the background, left running: nohup php -d opcache.jit=disable -d sendmail_path=$PWD/tests/fakesendmail.sh -S localhost:8080 (log in /tmp/mantis-onboard/php-server.log)",
+      "Ran the MantisBT installer with the same parameters as build/ci_install_mantis.sh, posted with curl directly because macOS bash 3.2 does not support 'declare -A': install=2, db_type=pgsql, hostname=localhost, database_name=bugtracker, db_username/password=root, admin_username/password=root, timezone=UTC. This created config/config_inc.php (gitignored)",
+      "Ran build/ci_post_install.sh with HOSTNAME=localhost PORT=8080 DB_CMD='psql -d bugtracker -c' and a passthrough 'sudo' shim on PATH (/tmp/mantis-onboard/shim). It seeded the test project, versions, tags and anonymous user, created an API token, wrote tests/bootstrap.php and added the test config options to config/config_inc.php (both gitignored)",
+      "Ran vendor/bin/phpunit twice: 744 tests, 2550 assertions, all passing both times"
+    ],
+    "summary": "I set up the environment by following the project's CI workflow (the PostgreSQL variant) and ran the full PHPUnit suite. All 744 tests passed (2550 assertions), and a second run on the same database also passed. Nothing in git changed: config/config_inc.php, tests/bootstrap.php and vendor/ are all gitignored. To run the tests again, two things must still be running: the local Postgres 14 service (Homebrew postgresql@14, with database bugtracker and role root/root) and the PHP built-in web server on localhost:8080, which I left running in the background. The SOAP and REST tests call that server over HTTP. I had to change one setup step because of macOS: build/ci_install_mantis.sh uses bash associative arrays, which the system bash 3.2 does not support, so I sent the same installer request with curl directly. I also used a passthrough sudo shim so that ci_post_install.sh could run without asking for a password.",
+    "human_needed": []
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "task": "mantisbt-3",
+  "A": "control",
+  "B": "harness",
+  "answer": {
+    "A": {
+      "scope": 4,
+      "conventions": 4,
+      "tests": 5,
+      "readability": 5,
+      "notes": "Puts the ALL_PROJECTS parsing and validation in one helper, `category_parse_project_id()` in category_api.php, and uses it in all three commands. Removing the duplicated code is a small step beyond the task, but it is justified. It drops the `status` override in the add and update commands, uses an explicit (bool) cast in update, and updates the OpenAPI spec. The tests are thorough: full add/update/delete of a global category, delete by name, the boundary between project and global categories (a category is not found through the wrong project), invalid project ids still rejected, the default category and a category used by issues still protected, and `status` ignored in both the commands and REST, including the case where `enabled` and `status` conflict."
+    },
+    "B": {
+      "scope": 5,
+      "conventions": 3,
+      "tests": 4,
+      "readability": 3,
+      "notes": "Functionally the same fix, but the same ternary and project_exists guard are copied into each of the three commands. That duplication makes later changes more likely to go wrong. The `status` removal and the OpenAPI change match A. The tests cover global add/update, delete, protection of the default category, deleting a project category through ALL_PROJECTS, and `status` being ignored in the commands and REST. Missing: invalid project ids, the boundary check in the other direction, update rejection, and a category used by issues. The REST test for a global category does not toggle `enabled`."
+    },
+    "merge_first": "A",
+    "why": "Both make the same behaviour change. A puts the ALL_PROJECTS handling in one reusable helper, while B copies it into three files. A's tests also cover more of the edge cases and regressions: invalid ids, the boundary between project and global categories, and a category used by issues."
+  }
+}
